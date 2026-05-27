@@ -13,6 +13,7 @@ ae = 1560800 #body radius
 miu = 3202.71210e6 # gravitational parameter
 #Io
 ae = 1821600
+miu = 6.67e-11 * 8.931e22
 #Not finished
 
 n = 1
