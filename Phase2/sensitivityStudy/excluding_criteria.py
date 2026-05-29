@@ -13,7 +13,7 @@ criteria = [
     {"name": "Science return",     "weight": 0.25, "scores": [3.75, 4.5,  3.125, 3.875]},
     {"name": "System performance", "weight": 0.15, "scores": [3.4,  1.5,  5.0,   3.5  ]},
     {"name": "Risk",               "weight": 0.15, "scores": [2.0,  1.0,  5.0,   4.0  ]},
-    {"name": "Cost",               "weight": 0.25, "scores": [3.8,  2.8,  5.0,   3.8  ]},
+    {"name": "Cost",               "weight": 0.25, "scores": [5.0,  2.2,  4.0,   2.2  ]},
     {"name": "Schedule",           "weight": 0.10, "scores": [3.5,  3.0,  3.5,   2.5  ]},
     {"name": "Sustainability",     "weight": 0.10, "scores": [4.5,  1.0,  5.0,   2.0  ]},
 ]
