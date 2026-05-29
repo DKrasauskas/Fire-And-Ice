@@ -15,7 +15,7 @@ criteria = [
     {"name": "Risk",               "weight": 0.15, "var": 30,  "w_lo":  0.00, "w_hi": +0.10,
      "scores": [2.0,  1.0,  5.0,   4.0  ]},
     {"name": "Cost",               "weight": 0.25, "var": 20,  "w_lo": -0.15, "w_hi": +0.05,
-     "scores": [3.8,  2.8,  5.0,   3.8  ]},
+     "scores":  [5.0,  2.2,  4.0,   2.2  ]},
     {"name": "Schedule",           "weight": 0.10, "var": 25,  "w_lo":  0.00, "w_hi": +0.10,
      "scores": [3.5,  3.0,  3.5,   2.5  ]},
     {"name": "Sustainability",     "weight": 0.10, "var": 35,  "w_lo":  0.00, "w_hi": +0.05,
@@ -124,4 +124,4 @@ fig2.tight_layout()
 fig2.savefig('monte_carlo_prob.png', dpi=150, bbox_inches='tight')
 
 plt.show()
-print("Plots saved to monte_carlo_gap.png and monte_carlo_prob.png")
+print("Plots saved to monte_carlo_gap.png, monte_carlo_prob.png")
