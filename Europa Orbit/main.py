@@ -55,7 +55,7 @@ body_settings.get("SoIaF").radiation_pressure_target_settings = vehicle_target_s
 
 # Propagation setup -------------------------------------------------------------------------------------------------------------
 bodies = environment_setup.create_system_of_bodies(body_settings)
-bodies.get("SoIaF").mass = 2.2 #kg
+bodies.get("SoIaF").mass = 1633.28 #kg
 
 # Define bodies that are propagated
 bodies_to_propagate = ["SoIaF"]
@@ -181,13 +181,13 @@ plt.tight_layout()
 # Plot ground track for a period of 3 hours ------------------------------------------------------------------------------------------------------
 latitude = dep_var_dict.asarray(dependent_variable.latitude("SoIaF", "Europa"))
 longitude = dep_var_dict.asarray(dependent_variable.longitude("SoIaF", "Europa"))
-hours = 3
+hours = 24
 subset = int(len(relative_time_hours) / 24 * hours)
 latitude = np.rad2deg(latitude[0: subset])
 longitude = np.rad2deg(longitude[0: subset])
 
 plt.figure(figsize=(9, 5))
-plt.title("3 hour ground track of Delfi-C3")
+plt.title("3 hour ground track of SoIaF")
 plt.scatter(longitude, latitude, s=1)
 plt.xlabel('Longitude [deg]')
 plt.ylabel('Latitude [deg]')
@@ -196,3 +196,5 @@ plt.yticks(np.arange(-90, 91, step=45))
 plt.grid()
 plt.tight_layout()
 
+
+plt.show()
