@@ -5,7 +5,6 @@ from matplotlib import pyplot as plt
 # Load tudatpy modules
 from tudatpy.interface import spice
 from tudatpy.dynamics import environment_setup, propagation_setup, simulator
-from tudatpy.astro import element_conversion
 from tudatpy.util import result2array
 from tudatpy.astro.time_representation import DateTime
 from tudatpy.dynamics.propagation_setup import dependent_variable
@@ -17,7 +16,7 @@ spice.load_standard_kernels()
 # Bodies
 bodies_to_create = ["Jupiter", "Europa"]
 
-# Reference frame
+# Propagation frame
 global_frame_origin = "Europa"
 global_frame_orientation = "J2000"
 
@@ -82,27 +81,48 @@ acceleration_models = propagation_setup.create_acceleration_models(
 simulation_start_epoch = DateTime(2026, 6, 28).to_epoch()
 simulation_end_epoch = DateTime(2026, 6, 29).to_epoch()
 
-# Initial Europa polar orbit
+# Europa parameters
 europa_mu = bodies.get("Europa").gravitational_parameter
 europa_radius = bodies.get("Europa").shape_model.average_radius
 
+# Initial orbit parameters
 altitude = 100.0e3  # m
 semi_major_axis = europa_radius + altitude
-eccentricity = 0.0
-inclination = np.deg2rad(90.0)
-argument_of_periapsis = np.deg2rad(0.0)
-raan = np.deg2rad(0.0)
-true_anomaly = np.deg2rad(0.0)
+circular_velocity = np.sqrt(europa_mu / semi_major_axis)
 
-initial_state = element_conversion.keplerian_to_cartesian_elementwise(
-    gravitational_parameter=europa_mu,
-    semi_major_axis=semi_major_axis,
-    eccentricity=eccentricity,
-    inclination=inclination,
-    argument_of_periapsis=argument_of_periapsis,
-    longitude_of_ascending_node=raan,
-    true_anomaly=true_anomaly
+# Define a circular polar orbit with respect to Europa's equator.
+# This is first written in a Europa-equator-aligned frame:
+# x-y plane = Europa equatorial plane
+# z-axis = Europa north pole
+#
+# r along Europa equator
+# v along Europa spin axis
+# This makes the orbit plane contain Europa's rotation axis, so it is polar.
+position_europa_equator_frame = np.array([
+    semi_major_axis,
+    0.0,
+    0.0
+])
+
+velocity_europa_equator_frame = np.array([
+    0.0,
+    0.0,
+    circular_velocity
+])
+
+# Rotate this Europa-equator-aligned state into J2000 for propagation.
+# The same rotation is applied to position and velocity on purpose:
+# this defines the inertial orbit plane aligned with Europa's pole at the initial epoch.
+rotation_matrix_europa_to_j2000 = spice.compute_rotation_matrix_between_frames(
+    "IAU_EUROPA",
+    "J2000",
+    simulation_start_epoch
 )
+
+position_j2000 = rotation_matrix_europa_to_j2000 @ position_europa_equator_frame
+velocity_j2000 = rotation_matrix_europa_to_j2000 @ velocity_europa_equator_frame
+
+initial_state = np.concatenate((position_j2000, velocity_j2000))
 
 # Dependent variables
 dependent_variables_to_save = [
@@ -156,29 +176,15 @@ dynamics_simulator = simulator.create_dynamics_simulator(
 states_history = dynamics_simulator.propagation_results.state_history
 states_array = result2array(states_history)
 
-dep_vars_history = dynamics_simulator.propagation_results.dependent_variable_history
-dep_vars_array = result2array(dep_vars_history)
-
 dep_var_dict = create_dependent_variable_dictionary(dynamics_simulator)
 
 relative_time_hours = (
     dep_var_dict.time_history - dep_var_dict.time_history[0]
 ) / 3600.0
 
-# Total acceleration
-total_acceleration = dep_var_dict.asarray(
-    dependent_variable.total_acceleration("SoIaF")
-)
-total_acceleration_norm = np.linalg.norm(total_acceleration, axis=1)
 
-plt.figure(figsize=(9, 5))
-plt.title("Total acceleration norm on SoIaF over the propagation")
-plt.plot(relative_time_hours, total_acceleration_norm)
-plt.xlabel("Time [hr]")
-plt.ylabel("Total acceleration [m/s$^2$]")
-plt.xlim([min(relative_time_hours), max(relative_time_hours)])
-plt.grid()
-plt.tight_layout()
+
+
 
 # Ground track
 latitude = dep_var_dict.asarray(
@@ -217,6 +223,7 @@ ax.plot(
     states_array[:, 1],
     states_array[:, 2],
     states_array[:, 3],
+    color = "green",
     label="SoIaF",
     linestyle="-."
 )
