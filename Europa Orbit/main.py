@@ -48,7 +48,7 @@ accelerations_settings_SoIaF = dict(
     Europa=[propagation_setup.acceleration.aerodynamic()])
 
 # Create global accelerations settings dictionary.
-acceleration_settings = {"SoIaF": accelerations_settings_SoIaF3}
+acceleration_settings = {"SoIaF": accelerations_settings_SoIaF}
 
 # Create acceleration models.
 acceleration_models = propagation_setup.create_acceleration_models(
