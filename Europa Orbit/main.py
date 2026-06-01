@@ -17,7 +17,7 @@ from tudatpy.astro.time_representation import DateTime
 # Load spice kernels
 spice.load_standard_kernels()
 
-# Define string names for bodies to be created from default.
+# Define string names for bodies to be created from default ----------------------------------------------
 bodies_to_create = ["Jupiter", "Europa"]
 
 # Use "Europa"/"J2000" as global frame origin and orientation.
@@ -30,9 +30,30 @@ body_settings = environment_setup.get_default_body_settings(
     global_frame_origin,
     global_frame_orientation)
 
-# Create empty body settings for the satellite
+# Create empty body settings for the satellite -------------------------------------------------------------
 body_settings.add_empty_settings("SoIaF")
 
+# Create aerodynamic coefficient interface settings --------------------------------------------------------
+reference_area_drag = 0 
+drag_coefficient = 0
+aero_coefficient_settings = environment_setup.aerodynamic_coefficients.constant(reference_area_drag, [drag_coefficient, 0.0, 0.0])
+
+# Add the aerodynamic interface to the body settings
+body_settings.get("SoIaF").aerodynamic_coefficient_settings = aero_coefficient_settings
+
+# Create radiation pressure settings -----------------------------------------------------------------------
+reference_area_radiation = 0 
+radiation_pressure_coefficient = 0
+occulting_bodies_dict = dict()
+occulting_bodies_dict["Jupiter"] = ["Europa"]
+vehicle_target_settings = environment_setup.radiation_pressure.cannonball_radiation_target(
+    reference_area_radiation, radiation_pressure_coefficient, occulting_bodies_dict )
+
+# Add the radiation pressure interface to the body settings
+body_settings.get("SoIaF").radiation_pressure_target_settings = vehicle_target_settings
+
+
+# Propagation setup -------------------------------------------------------------------------------------------------------------
 bodies = environment_setup.create_system_of_bodies(body_settings)
 bodies.get("SoIaF").mass = 2.2 #kg
 
@@ -42,10 +63,17 @@ bodies_to_propagate = ["SoIaF"]
 # Define central bodies of propagation
 central_bodies = ["Europa"]
 
-# Define accelerations acting on SoIaF by Sun and Earth.
+# Create the acceleration model ------------------------------------------------------------------
+# Define accelerations acting on SoIaF by Jupiter and Europa 
 accelerations_settings_SoIaF = dict(
-    Jupiter=[propagation_setup.acceleration.point_mass_gravity()],
-    Europa=[propagation_setup.acceleration.aerodynamic()])
+    Jupiter=[
+        # propagation_setup.acceleration.radiation_pressure(),
+        propagation_setup.acceleration.point_mass_gravity()
+    ],
+    Europa=[
+        propagation_setup.acceleration.spherical_harmonic_gravity(5, 5),
+        # propagation_setup.acceleration.aerodynamic()
+    ],)
 
 # Create global accelerations settings dictionary.
 acceleration_settings = {"SoIaF": accelerations_settings_SoIaF}
@@ -57,11 +85,11 @@ acceleration_models = propagation_setup.create_acceleration_models(
     bodies_to_propagate,
     central_bodies)
 
-# Set simulation start and end epochs
-simulation_start_epoch = DateTime(2008, 4, 28).to_epoch()
-simulation_end_epoch   = DateTime(2008, 4, 29).to_epoch()
+# Set simulation start and end epochs ------------------------------------------------------------------
+simulation_start_epoch = DateTime(2026, 6, 28).to_epoch()
+simulation_end_epoch   = DateTime(2026, 6, 29).to_epoch()
 
-# Retrieve the initial state of Delfi-C3 using Two-Line-Elements (TLEs)
+# Retrieve the initial state of SoIaF using Two-Line-Elements (TLEs)
 SoIaF_tle = environment_setup.ephemeris.sgp4(
     "1 32789U 07021G   08119.60740078 -.00000054  00000-0  00000+0 0  9999",
     "2 32789 098.0082 179.6267 0015321 307.2977 051.0656 14.81417433    68",
@@ -69,12 +97,13 @@ SoIaF_tle = environment_setup.ephemeris.sgp4(
 SoIaF_ephemeris = environment_setup.create_body_ephemeris(SoIaF_tle, "SoIaF")
 initial_state = SoIaF_ephemeris.cartesian_state( simulation_start_epoch )
 
+# Define dependent variables to save ------------------------------------------------------------------------
 from tudatpy.dynamics.propagation_setup import dependent_variable
 
 # Define list of dependent variables to save
 dependent_variables_to_save = [
     dependent_variable.total_acceleration("SoIaF"),
-    dependent_variable.keplerian_state("SoIaF", "Euorpa"),
+    dependent_variable.keplerian_state("SoIaF", "Europa"),
     dependent_variable.latitude("SoIaF", "Europa"),
     dependent_variable.longitude("SoIaF", "Europa"),
 ]
@@ -83,16 +112,8 @@ acceleration_dependent_variables_to_save = [
         propagation_setup.acceleration.point_mass_gravity_type, "SoIaF", "Jupiter"
     ),
     dependent_variable.single_acceleration_norm(
-        propagation_setup.acceleration.spherical_harmonic_gravity_type,
-        "SoIaF",
-        "Europa",
-    ),
-    dependent_variable.single_acceleration_norm(
-        propagation_setup.acceleration.aerodynamic_type, "SoIaF", "Europa"
-    ),
-    dependent_variable.single_acceleration_norm(
-        propagation_setup.acceleration.radiation_pressure_type, "SoIaF", "Jupiter"
-    ),
+        propagation_setup.acceleration.spherical_harmonic_gravity_type, "SoIaF", "Europa",
+    )
 ]
 
 dependent_variables_to_save += acceleration_dependent_variables_to_save
