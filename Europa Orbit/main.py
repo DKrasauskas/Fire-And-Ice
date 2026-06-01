@@ -78,8 +78,8 @@ acceleration_models = propagation_setup.create_acceleration_models(
 )
 
 # Simulation epochs
-simulation_start_epoch = DateTime(2026, 6, 28).to_epoch()
-simulation_end_epoch = DateTime(2026, 6, 29).to_epoch()
+simulation_start_epoch = DateTime(2026, 6, 1).to_epoch()
+simulation_end_epoch = DateTime(2026, 6, 2).to_epoch()
 
 # Europa parameters
 europa_mu = bodies.get("Europa").gravitational_parameter
@@ -182,10 +182,6 @@ relative_time_hours = (
     dep_var_dict.time_history - dep_var_dict.time_history[0]
 ) / 3600.0
 
-
-
-
-
 # Ground track
 latitude = dep_var_dict.asarray(
     dependent_variable.latitude("SoIaF", "Europa")
@@ -194,7 +190,7 @@ longitude = dep_var_dict.asarray(
     dependent_variable.longitude("SoIaF", "Europa")
 )
 
-hours = 24
+hours = 10
 subset = int(len(relative_time_hours) / 24 * hours)
 
 latitude = np.rad2deg(latitude[:subset])
@@ -243,3 +239,25 @@ ax.set_zlabel("z [m]")
 ax.set_aspect("equal")
 
 plt.show()
+
+# print properties -----------------------------------------------------------------------------------
+a = europa_radius + 100000
+T = 2*np.pi*np.sqrt(a**3/europa_mu)
+print(f"Orbital period: {T/3600} h ")
+
+n = np.sqrt(europa_mu/a**3)
+print(f"Mean motion: {np.rad2deg(n)*3600} deg/h")
+
+v = np.sqrt(europa_mu/a)
+print(f"Orbital velocity: {v/1000:.3f} km/s")
+
+print(f"Altitude: 100 km")
+
+print(f"Orbits per day: {24/(T/3600)}")
+
+#### Ground track shift per orbit (longitude shift)
+europa_rotation_rate = bodies.get("Europa").rotation_model.body_fixed_angular_velocity
+europa_rotation_period = 2*np.pi / europa_rotation_rate
+
+delta_longitude = 360 * T / europa_rotation_period
+print(f"Ground track shift per orbit: {delta_longitude} deg")
