@@ -42,9 +42,15 @@ def solve_lambert(r1_vec, r2_vec, tof, mu, prograde=True):
     cross = np.cross(r1_vec, r2_vec)
 
     if prograde:
-        dtheta = np.arccos(cos_dtheta) if cross[2] >= 0 else 2*np.pi - np.arccos(cos_dtheta)
+        if cross[2] >= 0:
+            dtheta = np.arccos(cos_dtheta)
+        else:
+            dtheta = 2*np.pi - np.arccos(cos_dtheta)
     else:
-        dtheta = np.arccos(cos_dtheta) if cross[2] < 0 else 2*np.pi - np.arccos(cos_dtheta)
+        if cross[2] < 0:
+            dtheta = np.arccos(cos_dtheta)
+        else:
+            dtheta = 2*np.pi - np.arccos(cos_dtheta)
 
     if abs(1 - np.cos(dtheta)) < 1e-12:
         raise RuntimeError("Lambert angle too small.")
@@ -139,7 +145,7 @@ def rk4_step(state, dt, mu):
     return state + dt*(k1 + 2*k2 + 2*k3 + k4)/6
 
 
-def propagate_arc(initial_state, tof, mu, n_steps=5000):
+def propagate_arc(initial_state, tof, mu, n_steps=3000):
     states = np.zeros((n_steps + 1, 6))
     states[0, :] = initial_state
 
@@ -175,6 +181,18 @@ radius_ganymede = bodies.get("Ganymede").shape_model.average_radius
 
 
 # ============================================================
+# Mission timing
+# ============================================================
+
+science_start_epoch = DateTime(2026, 6, 16).to_epoch()
+
+science_duration_days = 170.0
+science_duration = science_duration_days * 24 * 3600
+
+departure_epoch = science_start_epoch + science_duration
+
+
+# ============================================================
 # Europa parking orbit
 # ============================================================
 
@@ -186,104 +204,11 @@ v_esc_europa = np.sqrt(2 * mu_europa / r_parking)
 
 
 # ============================================================
-# Departure window and TOF search
+# Initial moon geometry
 # ============================================================
-
-departure_window_start_epoch = DateTime(2026, 6, 1).to_epoch()
-departure_window_end_epoch = DateTime(2026, 7, 1).to_epoch()
-
-# 0.5 day departure spacing over June
-departure_offsets_days = np.linspace(
-    0.0,
-    (departure_window_end_epoch - departure_window_start_epoch) / (24 * 3600),
-    61
-)
-
-# Transfer-time search
-tof_days_array = np.linspace(5.0, 200.0, 500)
-
-results = []
-
-print("Searching June 2026 departure window...")
-print(f"Departure samples: {len(departure_offsets_days)}")
-print(f"TOF samples: {len(tof_days_array)}")
-print()
-
-for departure_offset_days in departure_offsets_days:
-
-    departure_epoch = departure_window_start_epoch + departure_offset_days * 24 * 3600
-
-    europa_state_dep = get_state("Europa", departure_epoch)
-
-    r1_vec = europa_state_dep[:3]
-    v_europa_vec = europa_state_dep[3:]
-
-    for tof_days in tof_days_array:
-
-        tof = tof_days * 24 * 3600
-        arrival_epoch = departure_epoch + tof
-
-        ganymede_state_arr = get_state("Ganymede", arrival_epoch)
-
-        r2_vec = ganymede_state_arr[:3]
-        v_ganymede_vec = ganymede_state_arr[3:]
-
-        for prograde in [True, False]:
-
-            try:
-                v_sc_dep, v_sc_arr = solve_lambert(
-                    r1_vec=r1_vec,
-                    r2_vec=r2_vec,
-                    tof=tof,
-                    mu=mu_jupiter,
-                    prograde=prograde
-                )
-
-                v_inf_dep_vec = v_sc_dep - v_europa_vec
-                v_inf_arr_vec = v_sc_arr - v_ganymede_vec
-
-                v_inf_dep = np.linalg.norm(v_inf_dep_vec)
-                v_inf_arr = np.linalg.norm(v_inf_arr_vec)
-
-                dv_departure = np.sqrt(v_inf_dep**2 + v_esc_europa**2) - v_circ_europa
-
-                results.append({
-                    "departure_offset_days": departure_offset_days,
-                    "departure_epoch": departure_epoch,
-                    "tof_days": tof_days,
-                    "tof": tof,
-                    "arrival_epoch": arrival_epoch,
-                    "prograde": prograde,
-                    "r1_vec": r1_vec,
-                    "r2_vec": r2_vec,
-                    "v_sc_dep": v_sc_dep,
-                    "v_sc_arr": v_sc_arr,
-                    "v_inf_dep": v_inf_dep,
-                    "v_inf_arr": v_inf_arr,
-                    "dv_departure": dv_departure,
-                    "europa_state_dep": europa_state_dep,
-                    "ganymede_state_arr": ganymede_state_arr
-                })
-
-            except Exception:
-                pass
-
-
-best = min(results, key=lambda x: x["dv_departure"])
-
-
-# ============================================================
-# Final checks
-# ============================================================
-
-departure_epoch = best["departure_epoch"]
-arrival_epoch = best["arrival_epoch"]
 
 europa_state_dep = get_state("Europa", departure_epoch)
 ganymede_state_dep = get_state("Ganymede", departure_epoch)
-
-europa_state_arr = get_state("Europa", arrival_epoch)
-ganymede_state_arr = get_state("Ganymede", arrival_epoch)
 
 phase_angle_dep = angle_between_vectors(
     europa_state_dep[:3],
@@ -294,6 +219,94 @@ distance_dep = np.linalg.norm(
     ganymede_state_dep[:3] - europa_state_dep[:3]
 )
 
+print("Mission timing")
+print("--------------")
+print("Science start: 1 June 2026")
+print(f"Science duration: {science_duration_days:.1f} days")
+print(f"Disposal departure after science start: {science_duration_days:.1f} days")
+print()
+
+print("Moon geometry at disposal departure")
+print("-----------------------------------")
+print(f"Europa-Ganymede phase angle: {phase_angle_dep:.2f} deg")
+print(f"Europa-Ganymede distance: {distance_dep/1000:.0f} km")
+print()
+
+
+# ============================================================
+# Direct Lambert search
+# ============================================================
+# This searches direct transfers that exactly target Ganymede.
+# Arrival ΔV is not included because this is disposal by impact.
+
+tof_days_array = np.linspace(5.0, 200.0, 500)
+
+results = []
+
+for tof_days in tof_days_array:
+
+    tof = tof_days * 24 * 3600
+    arrival_epoch = departure_epoch + tof
+
+    europa_state = get_state("Europa", departure_epoch)
+    ganymede_state = get_state("Ganymede", arrival_epoch)
+
+    r1_vec = europa_state[:3]
+    v_europa_vec = europa_state[3:]
+
+    r2_vec = ganymede_state[:3]
+    v_ganymede_vec = ganymede_state[3:]
+
+    for prograde in [True, False]:
+
+        try:
+            v_sc_dep, v_sc_arr = solve_lambert(
+                r1_vec=r1_vec,
+                r2_vec=r2_vec,
+                tof=tof,
+                mu=mu_jupiter,
+                prograde=prograde
+            )
+
+            v_inf_dep_vec = v_sc_dep - v_europa_vec
+            v_inf_arr_vec = v_sc_arr - v_ganymede_vec
+
+            v_inf_dep = np.linalg.norm(v_inf_dep_vec)
+            v_inf_arr = np.linalg.norm(v_inf_arr_vec)
+
+            dv_departure = np.sqrt(v_inf_dep**2 + v_esc_europa**2) - v_circ_europa
+
+            results.append({
+                "tof_days": tof_days,
+                "tof": tof,
+                "arrival_epoch": arrival_epoch,
+                "prograde": prograde,
+                "r1_vec": r1_vec,
+                "r2_vec": r2_vec,
+                "v_sc_dep": v_sc_dep,
+                "v_sc_arr": v_sc_arr,
+                "v_inf_dep": v_inf_dep,
+                "v_inf_arr": v_inf_arr,
+                "dv_departure": dv_departure,
+                "ganymede_state_arr": ganymede_state
+            })
+
+        except Exception:
+            pass
+
+
+best = min(results, key=lambda x: x["dv_departure"])
+
+
+# ============================================================
+# Final checks
+# ============================================================
+
+arrival_epoch = best["arrival_epoch"]
+
+europa_state_arr = get_state("Europa", arrival_epoch)
+ganymede_state_arr = get_state("Ganymede", arrival_epoch)
+
 phase_angle_arr = angle_between_vectors(
     europa_state_arr[:3],
     ganymede_state_arr[:3]
@@ -303,16 +316,13 @@ distance_arr = np.linalg.norm(
     ganymede_state_arr[:3] - europa_state_arr[:3]
 )
 
-
-print("Best June 2026 Lambert disposal transfer")
-print("----------------------------------------")
-print(f"Best departure offset from 1 June 2026: {best['departure_offset_days']:.2f} days")
+print("Best direct Lambert disposal transfer")
+print("-------------------------------------")
+print(f"Search range: {tof_days_array[0]:.1f} to {tof_days_array[-1]:.1f} days")
 print(f"Best transfer time: {best['tof_days']:.2f} days")
-print(f"Arrival offset from 1 June 2026: {best['departure_offset_days'] + best['tof_days']:.2f} days")
 print(f"Transfer direction: {'prograde' if best['prograde'] else 'retrograde'}")
-print()
 print(f"Europa departure v_inf: {best['v_inf_dep']/1000:.3f} km/s")
-print(f"Ganymede arrival v_inf, impact speed before Ganymede gravity: {best['v_inf_arr']/1000:.3f} km/s")
+print(f"Ganymede arrival v_inf: {best['v_inf_arr']/1000:.3f} km/s")
 print()
 print(f"Europa parking orbit altitude: {parking_altitude/1000:.1f} km")
 print(f"Europa parking orbit velocity: {v_circ_europa/1000:.3f} km/s")
@@ -320,15 +330,10 @@ print(f"Europa escape velocity: {v_esc_europa/1000:.3f} km/s")
 print(f"Required Europa departure ΔV: {best['dv_departure']/1000:.3f} km/s")
 print(f"Required Europa departure ΔV with 20% margin: {1.2*best['dv_departure']/1000:.3f} km/s")
 print()
-print("Moon geometry at departure")
-print("--------------------------")
-print(f"Europa-Ganymede phase angle: {phase_angle_dep:.2f} deg")
-print(f"Europa-Ganymede distance: {distance_dep/1000:.0f} km")
-print()
 print("Moon geometry at arrival")
 print("------------------------")
-print(f"Europa-Ganymede phase angle: {phase_angle_arr:.2f} deg")
-print(f"Europa-Ganymede distance: {distance_arr/1000:.0f} km")
+print(f"Europa-Ganymede phase angle at arrival: {phase_angle_arr:.2f} deg")
+print(f"Europa-Ganymede distance at arrival: {distance_arr/1000:.0f} km")
 
 
 # ============================================================
@@ -347,7 +352,8 @@ transfer_states = propagate_arc(
     n_steps=5000
 )
 
-# Force final point to exact Lambert target to avoid RK4 plotting drift
+# Force last plotted point to exact Lambert target.
+# This avoids small numerical RK4 plotting drift.
 transfer_states[-1, :3] = best["r2_vec"]
 
 miss_distance_plot = np.linalg.norm(
@@ -375,32 +381,8 @@ for i, epoch in enumerate(times):
 
 
 # ============================================================
-# Plots
+# ΔV scan plot
 # ============================================================
-
-plt.figure(figsize=(9, 5))
-
-plt.plot(
-    [r["departure_offset_days"] for r in results],
-    [r["dv_departure"]/1000 for r in results],
-    ".",
-    markersize=2
-)
-
-plt.scatter(
-    best["departure_offset_days"],
-    best["dv_departure"]/1000,
-    marker="x",
-    s=100,
-    color="black"
-)
-
-plt.title("June 2026 Departure Optimization")
-plt.xlabel("Departure offset from 1 June 2026 [days]")
-plt.ylabel("Europa departure ΔV [km/s]")
-plt.grid()
-plt.tight_layout()
-
 
 plt.figure(figsize=(9, 5))
 
@@ -408,7 +390,7 @@ plt.plot(
     [r["tof_days"] for r in results],
     [r["dv_departure"]/1000 for r in results],
     ".",
-    markersize=2
+    markersize=3
 )
 
 plt.scatter(
@@ -419,17 +401,21 @@ plt.scatter(
     color="black"
 )
 
-plt.title("Transfer-Time Optimization")
+plt.title("Direct Lambert Transfer Search")
 plt.xlabel("Transfer time [days]")
 plt.ylabel("Europa departure ΔV [km/s]")
 plt.grid()
 plt.tight_layout()
 
 
+# ============================================================
+# 3D plot
+# ============================================================
+
 fig = plt.figure(figsize=(10, 9), dpi=125)
 ax = fig.add_subplot(111, projection="3d")
 
-ax.set_title("Optimized June 2026 Europa-to-Ganymede Disposal Transfer")
+ax.set_title("Direct Disposal Transfer")
 
 # Jupiter
 ax.scatter(
@@ -508,10 +494,10 @@ ax.scatter(
     ganymede_state_arr[2]/1000,
     color="tab:green",
     s=130,
-    label="Ganymede at arrival / impact"
+    label="Ganymede at arrival"
 )
 
-# Transfer start/end
+# Transfer start
 ax.scatter(
     transfer_states[0, 0]/1000,
     transfer_states[0, 1]/1000,
@@ -522,6 +508,7 @@ ax.scatter(
     label="Transfer start"
 )
 
+# Transfer end
 ax.scatter(
     transfer_states[-1, 0]/1000,
     transfer_states[-1, 1]/1000,
