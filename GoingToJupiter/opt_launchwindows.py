@@ -95,9 +95,9 @@ best_trajectory_each_day = best_trajectory_each_day.sort_values("Launch day")
 # Save results
 # -----------------------------------------------------
 
-output_file = r"C:\Users\gonza\DSE\minimum_delta_v_trajectory_by_date.xlsx"
+output_file = "minimum_delta_v_trajectory_by_date.xlsx"
 
-best_trajectory_each_day.to_excel(output_file, index=False)
+best_trajectory_each_day.to_excel("minimum_delta_v_trajectory_by_date.xlsx", index=False)
 
 print(f"Results saved to: {output_file}")
 
@@ -218,7 +218,7 @@ optimal_launches["Spacecraft final mass fraction [-]"] = results["spacecraft_fin
 # Save and print results
 # -----------------------------------------------------
 
-output_file = r"C:\Users\gonza\DSE\optimal_launches_spacecraft_propulsion_results.xlsx"
+output_file = r"optimal_launches_spacecraft_propulsion_results.xlsx"
 optimal_launches.to_excel(output_file, index=False)
 
 print(f"Results saved to: {output_file}")
