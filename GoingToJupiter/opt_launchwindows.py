@@ -41,6 +41,26 @@ data_VVEE = pd.read_csv(
     usecols=[0, 1, 2]
 )
 
+data_VEVE = pd.read_csv(
+    script_dir / "VEVE.csv",
+    usecols=[0, 1, 2]
+)
+
+data_VEM = pd.read_csv(
+    script_dir / "VEM.csv",
+    usecols=[0, 1, 2]
+)
+
+data_ME = pd.read_csv(
+    script_dir / "ME.csv",
+    usecols=[0, 1, 2]
+)
+
+data_MEE = pd.read_csv(
+    script_dir / "MEE.csv",
+    usecols=[0, 1, 2]
+)
+
 
 
 # -----------------------------------------------------
@@ -53,6 +73,10 @@ data_VE.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
 data_VEE.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
 data_VVE.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
 data_VVEE.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
+data_VEVE.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
+data_VEM.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
+data_ME.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
+data_MEE.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
 
 data_EVE["Trajectory"] = "EVE"
 data_EVEE["Trajectory"] = "EVEE"
@@ -60,14 +84,17 @@ data_VE["Trajectory"] = "VE"
 data_VEE["Trajectory"] = "VEE"
 data_VVE["Trajectory"] = "VVE"
 data_VVEE["Trajectory"] = "VVEE"
-
+data_VEVE["Trajectory"] = "VEVE"
+data_VEM["Trajectory"] = "VEM"
+data_ME["Trajectory"] = "ME"
+data_MEE["Trajectory"] = "MEE"
 
 # -----------------------------------------------------
 # Combine all trajectories into one DataFrame
 # -----------------------------------------------------
 
 all_data = pd.concat(
-    [data_VE, data_VEE, data_VVE, data_VVEE],
+    [data_VE, data_VEE, data_VVE, data_VVEE, data_VEVE, data_VEM, data_ME, data_MEE],
     ignore_index=True
 )
 
@@ -162,8 +189,12 @@ trajectory_markers = {
     "VEE": "x",
     "VVE": "^",
     "VVEE": "s",
-    "EVE": "D",
-    "EVEE": "*"
+    "VEVE": "P",
+    "VEM": "v",
+    "ME": "D",
+    "MEE": "*",
+    "EVE": "h",
+    "EVEE": "+"
 }
 
 # Only include transfer-time bins and trajectories that actually appear
