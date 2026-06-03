@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
+from matplotlib.lines import Line2D
 
 
 # -----------------------------------------------------
@@ -12,32 +13,52 @@ script_dir = Path(__file__).parent
 
 data_EVE = pd.read_csv(
     script_dir / "EVE.csv",
-    usecols=[0, 1]
+    usecols=[0, 1, 2]
 )
 
 data_EVEE = pd.read_csv(
     script_dir / "EVEE.csv",
-    usecols=[0, 1]
+    usecols=[0, 1, 2]
 )
 
 data_VE = pd.read_csv(
     script_dir / "VE.csv",
-    usecols=[0, 1]
+    usecols=[0, 1, 2]
 )
 
 data_VEE = pd.read_csv(
     script_dir / "VEE.csv",
-    usecols=[0, 1]
+    usecols=[0, 1, 2]
 )
 
 data_VVE = pd.read_csv(
     script_dir / "VVE.csv",
-    usecols=[0, 1]
+    usecols=[0, 1, 2]
 )
 
 data_VVEE = pd.read_csv(
     script_dir / "VVEE.csv",
-    usecols=[0, 1]
+    usecols=[0, 1, 2]
+)
+
+data_VEVE = pd.read_csv(
+    script_dir / "VEVE.csv",
+    usecols=[0, 1, 2]
+)
+
+data_VEM = pd.read_csv(
+    script_dir / "VEM.csv",
+    usecols=[0, 1, 2]
+)
+
+data_ME = pd.read_csv(
+    script_dir / "ME.csv",
+    usecols=[0, 1, 2]
+)
+
+data_MEE = pd.read_csv(
+    script_dir / "MEE.csv",
+    usecols=[0, 1, 2]
 )
 
 
@@ -46,12 +67,16 @@ data_VVEE = pd.read_csv(
 # Format columns
 # -----------------------------------------------------
 
-data_EVE.columns = ["Launch date", "Delta V [m/s]"]
-data_EVEE.columns = ["Launch date", "Delta V [m/s]"]
-data_VE.columns = ["Launch date", "Delta V [m/s]"]
-data_VEE.columns = ["Launch date", "Delta V [m/s]"]
-data_VVE.columns = ["Launch date", "Delta V [m/s]"]
-data_VVEE.columns = ["Launch date", "Delta V [m/s]"]
+data_EVE.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
+data_EVEE.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
+data_VE.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
+data_VEE.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
+data_VVE.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
+data_VVEE.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
+data_VEVE.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
+data_VEM.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
+data_ME.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
+data_MEE.columns = ["Launch date", "Delta V [m/s]", "Transfer time [days]"]
 
 data_EVE["Trajectory"] = "EVE"
 data_EVEE["Trajectory"] = "EVEE"
@@ -59,22 +84,38 @@ data_VE["Trajectory"] = "VE"
 data_VEE["Trajectory"] = "VEE"
 data_VVE["Trajectory"] = "VVE"
 data_VVEE["Trajectory"] = "VVEE"
-
+data_VEVE["Trajectory"] = "VEVE"
+data_VEM["Trajectory"] = "VEM"
+data_ME["Trajectory"] = "ME"
+data_MEE["Trajectory"] = "MEE"
 
 # -----------------------------------------------------
 # Combine all trajectories into one DataFrame
 # -----------------------------------------------------
 
 all_data = pd.concat(
-    [data_VE, data_VEE, data_VVE, data_VVEE],
+    [data_VE, data_VEE, data_VVE, data_VVEE, data_VEVE, data_VEM, data_ME, data_MEE],
     ignore_index=True
 )
 
 
-# Convert dates and Delta V values
+# Convert dates, Delta V values, and transfer time values
 all_data["Launch date"] = pd.to_datetime(all_data["Launch date"])
 all_data["Delta V [m/s]"] = pd.to_numeric(all_data["Delta V [m/s]"]) - 3000 - 1000
+all_data["Transfer time [days]"] = pd.to_numeric(all_data["Transfer time [days]"])
 
+# Compute arrival date at Jupiter
+all_data["Arrival date"] = (
+    all_data["Launch date"] +
+    pd.to_timedelta(all_data["Transfer time [days]"], unit="D")
+)
+
+# Filter out transfers that arrive after the end of 2047
+latest_arrival_date = pd.Timestamp("2047-12-31 23:59:59")
+
+all_data = all_data[
+    all_data["Arrival date"] <= latest_arrival_date
+].copy()
 
 # Keep only the calendar date, ignoring hours/minutes/seconds
 all_data["Launch day"] = all_data["Launch date"].dt.date
@@ -95,44 +136,177 @@ best_trajectory_each_day = best_trajectory_each_day.sort_values("Launch day")
 # Save results
 # -----------------------------------------------------
 
-output_file = r"C:\Users\gonza\DSE\minimum_delta_v_trajectory_by_date.xlsx"
+output_file = script_dir / "minimum_delta_v_trajectory_by_date.xlsx"
 
 best_trajectory_each_day.to_excel(output_file, index=False)
 
 print(f"Results saved to: {output_file}")
 
-
 print(best_trajectory_each_day[[
     "Launch day",
+    "Arrival date",
     "Delta V [m/s]",
+    "Transfer time [days]",
     "Trajectory"
 ]].head(30))
 
+# -----------------------------------------------------
+# Plot minimum Delta V values <= 8000 m/s
+# Color = transfer time bin
+# Marker = trajectory
+# -----------------------------------------------------
 
-best_below_8000 = best_trajectory_each_day[
-    best_trajectory_each_day["Delta V [m/s]"] <= 8000
+best_below_4000 = best_trajectory_each_day[
+    best_trajectory_each_day["Delta V [m/s]"] <= 4000
 ].copy()
+
+# Convert transfer time from days to years
+best_below_4000["Transfer time [years]"] = (
+    best_below_4000["Transfer time [days]"] / 365.25
+)
+
+# Define transfer-time bins
+bins = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, np.inf]
+
+labels = [
+    "0-1 years",
+    "1-2 years",
+    "2-3 years",
+    "3-4 years",
+    "4-5 years",
+    "5-6 years",
+    "6-7 years",
+    "7-8 years",
+    "8-9 years",
+    ">9 years"
+]
+
+best_below_4000["Transfer time bin"] = pd.cut(
+    best_below_4000["Transfer time [years]"],
+    bins=bins,
+    labels=labels,
+    right=False
+)
+
+# Colours for transfer-time bins
+time_bin_colours = {
+    "0-1 years": "tab:pink",
+    "1-2 years": "tab:orange",
+    "2-3 years": "tab:gray",
+    "3-4 years": "tab:red",
+    "4-5 years": "tab:purple",
+    "5-6 years": "tab:brown",
+    "6-7 years": "tab:blue",
+    "7-8 years": "tab:green",
+    "8-9 years": "tab:olive",
+    ">9 years": "tab:cyan"
+}
+
+# Markers for trajectories
+trajectory_markers = {
+    "VE": "o",
+    "VEE": "x",
+    "VVE": "^",
+    "VVEE": "s",
+    "VEVE": "P",
+    "VEM": "v",
+    "ME": "D",
+    "MEE": "*",
+    "EVE": "h",
+    "EVEE": "+"
+}
+
+# Only include transfer-time bins and trajectories that actually appear
+used_time_bins = best_below_4000["Transfer time bin"].dropna().unique()
+used_trajectories = best_below_4000["Trajectory"].dropna().unique()
+
 
 plt.figure()
 
-for trajectory in best_below_8000["Trajectory"].unique():
-    subset = best_below_8000[
-        best_below_8000["Trajectory"] == trajectory
-    ]
+for trajectory, marker in trajectory_markers.items():
+    for time_bin, colour in time_bin_colours.items():
 
-    plt.scatter(
-        subset["Launch day"],
-        subset["Delta V [m/s]"],
+        subset = best_below_4000[
+            (best_below_4000["Trajectory"] == trajectory) &
+            (best_below_4000["Transfer time bin"] == time_bin)
+        ]
+
+        if subset.empty:
+            continue
+
+        plt.scatter(
+            subset["Launch day"],
+            subset["Delta V [m/s]"],
+            marker=marker,
+            color=colour
+        )
+
+
+# -----------------------------------------------------
+# Legend 1: colours = transfer time
+# only includes transfer-time bins present in the data
+# -----------------------------------------------------
+
+colour_legend_handles = [
+    Line2D(
+        [0],
+        [0],
         marker="o",
-        label=trajectory
+        color="w",
+        label=time_bin,
+        markerfacecolor=time_bin_colours[time_bin],
+        markersize=8
     )
+    for time_bin in labels
+    if time_bin in used_time_bins
+]
+
+colour_legend = plt.legend(
+    handles=colour_legend_handles,
+    title="Transfer time",
+    loc="upper left",
+    bbox_to_anchor=(1.02, 1.00)
+)
+
+plt.gca().add_artist(colour_legend)
+
+
+# -----------------------------------------------------
+# Legend 2: markers = trajectory
+# outside plot
+# -----------------------------------------------------
+
+marker_legend_handles = [
+    Line2D(
+        [0],
+        [0],
+        marker=trajectory_markers[trajectory],
+        color="black",
+        label=trajectory,
+        linestyle="None",
+        markersize=8
+    )
+    for trajectory in trajectory_markers
+    if trajectory in used_trajectories
+]
+
+plt.legend(
+    handles=marker_legend_handles,
+    title="Trajectory",
+    loc="upper left",
+    bbox_to_anchor=(1.02, 0.55)
+)
+
 
 plt.xlabel("Launch date")
 plt.ylabel("Minimum Delta V [m/s]")
+# plt.title("Optimal launch windows by transfer time and trajectory")
 plt.grid(True)
-plt.legend(title="Best trajectory")
 plt.xticks(rotation=45)
-plt.tight_layout()
+
+# Leave space on the right for the two legends
+plt.subplots_adjust(right=0.78)
+
 plt.show()
 
 # -----------------------------------------------------
@@ -188,7 +362,7 @@ spacecraft_dry_mass = 3715   # kg, excluding transfer propellant
 
 
 # Use only the optimal launch opportunities below 8000 m/s
-optimal_launches = best_below_8000.copy()
+optimal_launches = best_below_4000.copy()
 
 delta_v_optimal = optimal_launches["Delta V [m/s]"].to_numpy()
 
