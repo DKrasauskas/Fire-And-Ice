@@ -1,543 +1,322 @@
+# ============================================================
+# Standard modules
+# ============================================================
+
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib.patches import Patch
+
+# ============================================================
+# Tudatpy modules
+# ============================================================
 
 from tudatpy.interface import spice
-from tudatpy.dynamics import environment_setup
+from tudatpy.dynamics import environment_setup, propagation_setup, simulator
+from tudatpy.util import result2array
 from tudatpy.astro.time_representation import DateTime
+from tudatpy.dynamics.propagation_setup import dependent_variable
+from tudatpy.dynamics.propagation import create_dependent_variable_dictionary
 
 
 # ============================================================
-# Lambert solver
-# ============================================================
-
-def stumpff_C(z):
-    if z > 0:
-        s = np.sqrt(z)
-        return (1 - np.cos(s)) / z
-    elif z < 0:
-        s = np.sqrt(-z)
-        return (np.cosh(s) - 1) / (-z)
-    else:
-        return 0.5
-
-
-def stumpff_S(z):
-    if z > 0:
-        s = np.sqrt(z)
-        return (s - np.sin(s)) / s**3
-    elif z < 0:
-        s = np.sqrt(-z)
-        return (np.sinh(s) - s) / s**3
-    else:
-        return 1.0 / 6.0
-
-
-def solve_lambert(r1_vec, r2_vec, tof, mu, prograde=True):
-    r1 = np.linalg.norm(r1_vec)
-    r2 = np.linalg.norm(r2_vec)
-
-    cos_dtheta = np.dot(r1_vec, r2_vec) / (r1 * r2)
-    cos_dtheta = np.clip(cos_dtheta, -1.0, 1.0)
-
-    cross = np.cross(r1_vec, r2_vec)
-
-    if prograde:
-        dtheta = np.arccos(cos_dtheta) if cross[2] >= 0 else 2*np.pi - np.arccos(cos_dtheta)
-    else:
-        dtheta = np.arccos(cos_dtheta) if cross[2] < 0 else 2*np.pi - np.arccos(cos_dtheta)
-
-    if abs(1 - np.cos(dtheta)) < 1e-12:
-        raise RuntimeError("Lambert angle too small.")
-
-    A = np.sin(dtheta) * np.sqrt(r1*r2 / (1 - np.cos(dtheta)))
-
-    if abs(A) < 1e-12:
-        raise RuntimeError("Lambert A too small.")
-
-    def tof_from_z(z):
-        C = stumpff_C(z)
-        S = stumpff_S(z)
-
-        if C <= 0:
-            return np.inf, None
-
-        y = r1 + r2 + A * (z*S - 1) / np.sqrt(C)
-
-        if y < 0:
-            return np.inf, None
-
-        x = np.sqrt(y / C)
-        t = (x**3 * S + A*np.sqrt(y)) / np.sqrt(mu)
-
-        return t, y
-
-    z_low = -4*np.pi**2
-    z_high = 4*np.pi**2
-
-    for _ in range(200):
-        z_mid = 0.5 * (z_low + z_high)
-        t_mid, _ = tof_from_z(z_mid)
-
-        if not np.isfinite(t_mid):
-            z_low = z_mid
-            continue
-
-        if t_mid < tof:
-            z_low = z_mid
-        else:
-            z_high = z_mid
-
-    z = 0.5 * (z_low + z_high)
-    _, y = tof_from_z(z)
-
-    f = 1 - y/r1
-    g = A * np.sqrt(y/mu)
-    gdot = 1 - y/r2
-
-    v1_vec = (r2_vec - f*r1_vec) / g
-    v2_vec = (gdot*r2_vec - r1_vec) / g
-
-    return v1_vec, v2_vec
-
-
-# ============================================================
-# Helper functions
-# ============================================================
-
-def get_state(body, epoch):
-    return spice.get_body_cartesian_state_at_epoch(
-        target_body_name=body,
-        observer_body_name="Jupiter",
-        reference_frame_name="J2000",
-        aberration_corrections="NONE",
-        ephemeris_time=epoch
-    )
-
-
-def angle_between_vectors(r1, r2):
-    cos_angle = np.dot(r1, r2) / (np.linalg.norm(r1) * np.linalg.norm(r2))
-    cos_angle = np.clip(cos_angle, -1.0, 1.0)
-    return np.rad2deg(np.arccos(cos_angle))
-
-
-def two_body_acceleration(r, mu):
-    return -mu * r / np.linalg.norm(r)**3
-
-
-def rk4_step(state, dt, mu):
-    def f(s):
-        r = s[:3]
-        v = s[3:]
-        a = two_body_acceleration(r, mu)
-        return np.hstack((v, a))
-
-    k1 = f(state)
-    k2 = f(state + 0.5*dt*k1)
-    k3 = f(state + 0.5*dt*k2)
-    k4 = f(state + dt*k3)
-
-    return state + dt*(k1 + 2*k2 + 2*k3 + k4)/6
-
-
-def propagate_arc(initial_state, tof, mu, n_steps=5000):
-    states = np.zeros((n_steps + 1, 6))
-    states[0, :] = initial_state
-
-    dt = tof / n_steps
-
-    for i in range(n_steps):
-        states[i+1, :] = rk4_step(states[i, :], dt, mu)
-
-    return states
-
-
-# ============================================================
-# Setup
+# Load SPICE kernels
 # ============================================================
 
 spice.load_standard_kernels()
 
-bodies_to_create = ["Jupiter", "Europa", "Ganymede"]
+
+# ============================================================
+# Body and frame setup
+# ============================================================
+
+bodies_to_create = ["Jupiter", "Europa"]
+
+global_frame_origin = "Europa"
+global_frame_orientation = "J2000"
 
 body_settings = environment_setup.get_default_body_settings(
     bodies_to_create,
-    "Jupiter",
-    "J2000"
+    global_frame_origin,
+    global_frame_orientation
+)
+
+body_settings.add_empty_settings("SoIaF")
+
+# No aerodynamic forces
+body_settings.get("SoIaF").aerodynamic_coefficient_settings = (
+    environment_setup.aerodynamic_coefficients.constant(
+        0.0,
+        [0.0, 0.0, 0.0]
+    )
+)
+
+# No radiation pressure
+body_settings.get("SoIaF").radiation_pressure_target_settings = (
+    environment_setup.radiation_pressure.cannonball_radiation_target(
+        0.0,
+        0.0,
+        {"Jupiter": ["Europa"]}
+    )
 )
 
 bodies = environment_setup.create_system_of_bodies(body_settings)
 
-mu_jupiter = bodies.get("Jupiter").gravitational_parameter
-mu_europa = bodies.get("Europa").gravitational_parameter
-
-radius_europa = bodies.get("Europa").shape_model.average_radius
-radius_ganymede = bodies.get("Ganymede").shape_model.average_radius
+spacecraft_mass = 1633.28
+bodies.get("SoIaF").mass = spacecraft_mass
 
 
 # ============================================================
-# Europa parking orbit
+# Propagation setup
 # ============================================================
 
-parking_altitude = 100.0e3
-r_parking = radius_europa + parking_altitude
+bodies_to_propagate = ["SoIaF"]
+central_bodies = ["Europa"]
 
-v_circ_europa = np.sqrt(mu_europa / r_parking)
-v_esc_europa = np.sqrt(2 * mu_europa / r_parking)
+acceleration_settings = {
+    "SoIaF": {
+        "Europa": [
+            propagation_setup.acceleration.spherical_harmonic_gravity(5, 5)
+        ],
+        "Jupiter": [
+            propagation_setup.acceleration.point_mass_gravity()
+        ]
+    }
+}
+
+acceleration_models = propagation_setup.create_acceleration_models(
+    bodies,
+    acceleration_settings,
+    bodies_to_propagate,
+    central_bodies
+)
 
 
 # ============================================================
-# Departure window and TOF search
+# Simulation time
 # ============================================================
 
-departure_window_start_epoch = DateTime(2026, 6, 1).to_epoch()
-departure_window_end_epoch = DateTime(2026, 7, 1).to_epoch()
+simulation_start_epoch = DateTime(2026, 6, 1).to_epoch()
+simulation_end_epoch = DateTime(2026, 6, 30).to_epoch()
 
-# 0.5 day departure spacing over June
-departure_offsets_days = np.linspace(
+
+# ============================================================
+# Initial 100 km circular polar orbit around Europa
+# ============================================================
+
+europa_mu = bodies.get("Europa").gravitational_parameter
+europa_radius = bodies.get("Europa").shape_model.average_radius
+
+altitude = 100.0e3
+semi_major_axis = europa_radius + altitude
+circular_velocity = np.sqrt(europa_mu / semi_major_axis)
+
+# Define polar orbit in Europa-equator frame
+position_europa_frame = np.array([
+    semi_major_axis,
     0.0,
-    (departure_window_end_epoch - departure_window_start_epoch) / (24 * 3600),
-    61
+    0.0
+])
+
+velocity_europa_frame = np.array([
+    0.0,
+    0.0,
+    circular_velocity
+])
+
+# Rotate Europa-equator frame state into J2000
+rotation_matrix_europa_to_j2000 = spice.compute_rotation_matrix_between_frames(
+    "IAU_EUROPA",
+    "J2000",
+    simulation_start_epoch
 )
 
-# Transfer-time search
-tof_days_array = np.linspace(5.0, 200.0, 500)
+position_j2000 = rotation_matrix_europa_to_j2000 @ position_europa_frame
+velocity_j2000 = rotation_matrix_europa_to_j2000 @ velocity_europa_frame
 
-results = []
-
-print("Searching June 2026 departure window...")
-print(f"Departure samples: {len(departure_offsets_days)}")
-print(f"TOF samples: {len(tof_days_array)}")
-print()
-
-for departure_offset_days in departure_offsets_days:
-
-    departure_epoch = departure_window_start_epoch + departure_offset_days * 24 * 3600
-
-    europa_state_dep = get_state("Europa", departure_epoch)
-
-    r1_vec = europa_state_dep[:3]
-    v_europa_vec = europa_state_dep[3:]
-
-    for tof_days in tof_days_array:
-
-        tof = tof_days * 24 * 3600
-        arrival_epoch = departure_epoch + tof
-
-        ganymede_state_arr = get_state("Ganymede", arrival_epoch)
-
-        r2_vec = ganymede_state_arr[:3]
-        v_ganymede_vec = ganymede_state_arr[3:]
-
-        for prograde in [True, False]:
-
-            try:
-                v_sc_dep, v_sc_arr = solve_lambert(
-                    r1_vec=r1_vec,
-                    r2_vec=r2_vec,
-                    tof=tof,
-                    mu=mu_jupiter,
-                    prograde=prograde
-                )
-
-                v_inf_dep_vec = v_sc_dep - v_europa_vec
-                v_inf_arr_vec = v_sc_arr - v_ganymede_vec
-
-                v_inf_dep = np.linalg.norm(v_inf_dep_vec)
-                v_inf_arr = np.linalg.norm(v_inf_arr_vec)
-
-                dv_departure = np.sqrt(v_inf_dep**2 + v_esc_europa**2) - v_circ_europa
-
-                results.append({
-                    "departure_offset_days": departure_offset_days,
-                    "departure_epoch": departure_epoch,
-                    "tof_days": tof_days,
-                    "tof": tof,
-                    "arrival_epoch": arrival_epoch,
-                    "prograde": prograde,
-                    "r1_vec": r1_vec,
-                    "r2_vec": r2_vec,
-                    "v_sc_dep": v_sc_dep,
-                    "v_sc_arr": v_sc_arr,
-                    "v_inf_dep": v_inf_dep,
-                    "v_inf_arr": v_inf_arr,
-                    "dv_departure": dv_departure,
-                    "europa_state_dep": europa_state_dep,
-                    "ganymede_state_arr": ganymede_state_arr
-                })
-
-            except Exception:
-                pass
-
-
-best = min(results, key=lambda x: x["dv_departure"])
+initial_state = np.concatenate((position_j2000, velocity_j2000))
 
 
 # ============================================================
-# Final checks
+# Dependent variables
 # ============================================================
 
-departure_epoch = best["departure_epoch"]
-arrival_epoch = best["arrival_epoch"]
+dependent_variables_to_save = [
+    dependent_variable.latitude("SoIaF", "Europa"),
+    dependent_variable.longitude("SoIaF", "Europa"),
+    dependent_variable.keplerian_state("SoIaF", "Europa"),
+    dependent_variable.single_acceleration_norm(
+        propagation_setup.acceleration.point_mass_gravity_type,
+        "SoIaF",
+        "Jupiter"
+    ),
+    dependent_variable.single_acceleration_norm(
+        propagation_setup.acceleration.spherical_harmonic_gravity_type,
+        "SoIaF",
+        "Europa"
+    )
+]
 
-europa_state_dep = get_state("Europa", departure_epoch)
-ganymede_state_dep = get_state("Ganymede", departure_epoch)
 
-europa_state_arr = get_state("Europa", arrival_epoch)
-ganymede_state_arr = get_state("Ganymede", arrival_epoch)
+# ============================================================
+# Integrator and propagator
+# ============================================================
 
-phase_angle_dep = angle_between_vectors(
-    europa_state_dep[:3],
-    ganymede_state_dep[:3]
+termination_condition = propagation_setup.propagator.time_termination(
+    simulation_end_epoch
 )
 
-distance_dep = np.linalg.norm(
-    ganymede_state_dep[:3] - europa_state_dep[:3]
+integrator_settings = propagation_setup.integrator.runge_kutta_fixed_step(
+    10.0,
+    coefficient_set=propagation_setup.integrator.CoefficientSets.rk_4
 )
 
-phase_angle_arr = angle_between_vectors(
-    europa_state_arr[:3],
-    ganymede_state_arr[:3]
-)
-
-distance_arr = np.linalg.norm(
-    ganymede_state_arr[:3] - europa_state_arr[:3]
+propagator_settings = propagation_setup.propagator.translational(
+    central_bodies,
+    acceleration_models,
+    bodies_to_propagate,
+    initial_state,
+    simulation_start_epoch,
+    integrator_settings,
+    termination_condition,
+    output_variables=dependent_variables_to_save
 )
 
 
-print("Best June 2026 Lambert disposal transfer")
-print("----------------------------------------")
-print(f"Best departure offset from 1 June 2026: {best['departure_offset_days']:.2f} days")
-print(f"Best transfer time: {best['tof_days']:.2f} days")
-print(f"Arrival offset from 1 June 2026: {best['departure_offset_days'] + best['tof_days']:.2f} days")
-print(f"Transfer direction: {'prograde' if best['prograde'] else 'retrograde'}")
-print()
-print(f"Europa departure v_inf: {best['v_inf_dep']/1000:.3f} km/s")
-print(f"Ganymede arrival v_inf, impact speed before Ganymede gravity: {best['v_inf_arr']/1000:.3f} km/s")
-print()
-print(f"Europa parking orbit altitude: {parking_altitude/1000:.1f} km")
-print(f"Europa parking orbit velocity: {v_circ_europa/1000:.3f} km/s")
-print(f"Europa escape velocity: {v_esc_europa/1000:.3f} km/s")
-print(f"Required Europa departure ΔV: {best['dv_departure']/1000:.3f} km/s")
-print(f"Required Europa departure ΔV with 20% margin: {1.2*best['dv_departure']/1000:.3f} km/s")
-print()
-print("Moon geometry at departure")
-print("--------------------------")
-print(f"Europa-Ganymede phase angle: {phase_angle_dep:.2f} deg")
-print(f"Europa-Ganymede distance: {distance_dep/1000:.0f} km")
-print()
-print("Moon geometry at arrival")
-print("------------------------")
-print(f"Europa-Ganymede phase angle: {phase_angle_arr:.2f} deg")
-print(f"Europa-Ganymede distance: {distance_arr/1000:.0f} km")
-
-
 # ============================================================
-# Propagate best transfer for plotting
+# Run propagation
 # ============================================================
 
-initial_transfer_state = np.hstack((
-    best["r1_vec"],
-    best["v_sc_dep"]
-))
-
-transfer_states = propagate_arc(
-    initial_transfer_state,
-    best["tof"],
-    mu_jupiter,
-    n_steps=5000
+dynamics_simulator = simulator.create_dynamics_simulator(
+    bodies,
+    propagator_settings
 )
 
-# Force final point to exact Lambert target to avoid RK4 plotting drift
-transfer_states[-1, :3] = best["r2_vec"]
 
-miss_distance_plot = np.linalg.norm(
-    transfer_states[-1, :3] - ganymede_state_arr[:3]
+# ============================================================
+# Extract results
+# ============================================================
+
+states_array = result2array(
+    dynamics_simulator.propagation_results.state_history
 )
 
-print()
-print("Plot check")
-print("----------")
-print(f"Final plotted distance from Ganymede: {miss_distance_plot/1000:.6f} km")
+dep_var_dict = create_dependent_variable_dictionary(dynamics_simulator)
+
+relative_time_hours = (
+    dep_var_dict.time_history - dep_var_dict.time_history[0]
+) / 3600.0
 
 
 # ============================================================
-# Moon trajectories over transfer
+# Ground track
 # ============================================================
 
-times = np.linspace(departure_epoch, arrival_epoch, len(transfer_states))
+latitude = dep_var_dict.asarray(
+    dependent_variable.latitude("SoIaF", "Europa")
+)
 
-europa_positions = np.zeros((len(times), 3))
-ganymede_positions = np.zeros((len(times), 3))
+longitude = dep_var_dict.asarray(
+    dependent_variable.longitude("SoIaF", "Europa")
+)
 
-for i, epoch in enumerate(times):
-    europa_positions[i, :] = get_state("Europa", epoch)[:3]
-    ganymede_positions[i, :] = get_state("Ganymede", epoch)[:3]
+hours = 24
+subset = int(len(relative_time_hours) / 24.0 * hours)
 
+latitude_plot = np.rad2deg(latitude[:subset])
+longitude_plot = np.rad2deg(longitude[:subset])
 
-# ============================================================
-# Plots
-# ============================================================
+longitude_plot = (longitude_plot + 180.0) % 360.0 - 180.0
 
 plt.figure(figsize=(9, 5))
-
-plt.plot(
-    [r["departure_offset_days"] for r in results],
-    [r["dv_departure"]/1000 for r in results],
-    ".",
-    markersize=2
-)
-
-plt.scatter(
-    best["departure_offset_days"],
-    best["dv_departure"]/1000,
-    marker="x",
-    s=100,
-    color="black"
-)
-
-plt.title("June 2026 Departure Optimization")
-plt.xlabel("Departure offset from 1 June 2026 [days]")
-plt.ylabel("Europa departure ΔV [km/s]")
+plt.title(f"{hours} hour ground track of SoIaF around Europa")
+plt.scatter(longitude_plot, latitude_plot, s=1)
+plt.xlabel("Longitude [deg]")
+plt.ylabel("Latitude [deg]")
+plt.xlim([-180, 180])
+plt.ylim([-90, 90])
+plt.yticks(np.arange(-90, 91, 45))
 plt.grid()
 plt.tight_layout()
 
 
-plt.figure(figsize=(9, 5))
+# ============================================================
+# 3D orbit plot with Europa to scale
+# ============================================================
 
-plt.plot(
-    [r["tof_days"] for r in results],
-    [r["dv_departure"]/1000 for r in results],
-    ".",
-    markersize=2
-)
-
-plt.scatter(
-    best["tof_days"],
-    best["dv_departure"]/1000,
-    marker="x",
-    s=100,
-    color="black"
-)
-
-plt.title("Transfer-Time Optimization")
-plt.xlabel("Transfer time [days]")
-plt.ylabel("Europa departure ΔV [km/s]")
-plt.grid()
-plt.tight_layout()
-
-
-fig = plt.figure(figsize=(10, 9), dpi=125)
+fig = plt.figure(figsize=(8, 8), dpi=150)
 ax = fig.add_subplot(111, projection="3d")
 
-ax.set_title("Optimized June 2026 Europa-to-Ganymede Disposal Transfer")
+ax.set_title("100 km Polar Science Orbit around Europa")
 
-# Jupiter
-ax.scatter(
-    0.0,
-    0.0,
-    0.0,
-    s=300,
-    color="tab:orange",
-    label="Jupiter"
+# Plot only ONE orbit
+T = 2.0 * np.pi * np.sqrt(semi_major_axis**3 / europa_mu)
+
+one_orbit_mask = (
+    states_array[:, 0] - states_array[0, 0]
+) <= T
+
+x_sc = states_array[one_orbit_mask, 1]
+y_sc = states_array[one_orbit_mask, 2]
+z_sc = states_array[one_orbit_mask, 3]
+
+# Europa sphere
+u = np.linspace(0.0, 2.0*np.pi, 80)
+v = np.linspace(0.0, np.pi, 80)
+
+x_europa = europa_radius * np.outer(np.cos(u), np.sin(v))
+y_europa = europa_radius * np.outer(np.sin(u), np.sin(v))
+z_europa = europa_radius * np.outer(np.ones_like(u), np.cos(v))
+
+ax.plot_surface(
+    x_europa,
+    y_europa,
+    z_europa,
+    color="wheat",
+    alpha=1.0,
+    linewidth=0,
+    shade=True
 )
 
-# Europa trajectory
-ax.plot(
-    europa_positions[:, 0]/1000,
-    europa_positions[:, 1]/1000,
-    europa_positions[:, 2]/1000,
-    linestyle="--",
-    color="tab:blue",
-    label="Europa trajectory"
+# Orbit
+orbit_line, = ax.plot(
+    x_sc,
+    y_sc,
+    z_sc,
+    color="red",
+    linewidth=1.0,
+    label="SoIaF orbit"
 )
 
-# Ganymede trajectory
-ax.plot(
-    ganymede_positions[:, 0]/1000,
-    ganymede_positions[:, 1]/1000,
-    ganymede_positions[:, 2]/1000,
-    linestyle="--",
-    color="tab:green",
-    label="Ganymede trajectory"
+# Equal scaling
+plot_radius = semi_major_axis * 1.03
+
+ax.set_xlim(-plot_radius, plot_radius)
+ax.set_ylim(-plot_radius, plot_radius)
+ax.set_zlim(-plot_radius, plot_radius)
+
+ax.set_box_aspect([1, 1, 1])
+
+# Better viewing angle
+ax.view_init(
+    elev=35,
+    azim=45
 )
 
-# SoIaF transfer
-ax.plot(
-    transfer_states[:, 0]/1000,
-    transfer_states[:, 1]/1000,
-    transfer_states[:, 2]/1000,
-    linewidth=2.0,
-    color="tab:red",
-    label="SoIaF transfer"
+ax.set_xlabel("x [m]")
+ax.set_ylabel("y [m]")
+ax.set_zlabel("z [m]")
+
+europa_patch = Patch(
+    facecolor="wheat",
+    edgecolor="wheat",
+    label="Europa"
 )
 
-# Europa at departure
-ax.scatter(
-    europa_state_dep[0]/1000,
-    europa_state_dep[1]/1000,
-    europa_state_dep[2]/1000,
-    color="tab:blue",
-    s=100,
-    label="Europa at departure"
+ax.legend(
+    handles=[orbit_line, europa_patch],
+    loc="center left",
+    bbox_to_anchor=(1.02, 0.5)
 )
-
-# Ganymede at departure
-ax.scatter(
-    ganymede_state_dep[0]/1000,
-    ganymede_state_dep[1]/1000,
-    ganymede_state_dep[2]/1000,
-    color="lime",
-    s=100,
-    label="Ganymede at departure"
-)
-
-# Europa at arrival
-ax.scatter(
-    europa_state_arr[0]/1000,
-    europa_state_arr[1]/1000,
-    europa_state_arr[2]/1000,
-    color="cyan",
-    s=100,
-    label="Europa at arrival"
-)
-
-# Ganymede at arrival
-ax.scatter(
-    ganymede_state_arr[0]/1000,
-    ganymede_state_arr[1]/1000,
-    ganymede_state_arr[2]/1000,
-    color="tab:green",
-    s=130,
-    label="Ganymede at arrival / impact"
-)
-
-# Transfer start/end
-ax.scatter(
-    transfer_states[0, 0]/1000,
-    transfer_states[0, 1]/1000,
-    transfer_states[0, 2]/1000,
-    color="black",
-    marker="x",
-    s=80,
-    label="Transfer start"
-)
-
-ax.scatter(
-    transfer_states[-1, 0]/1000,
-    transfer_states[-1, 1]/1000,
-    transfer_states[-1, 2]/1000,
-    color="black",
-    marker="o",
-    s=80,
-    label="Transfer end"
-)
-
-ax.set_xlabel("x [km]")
-ax.set_ylabel("y [km]")
-ax.set_zlabel("z [km]")
-
-ax.set_aspect("equal")
-ax.legend(fontsize=8)
 
 plt.tight_layout()
 plt.show()
