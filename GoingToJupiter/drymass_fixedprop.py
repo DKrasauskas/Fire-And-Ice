@@ -170,7 +170,7 @@ optimal_launches["Current dry mass feasible?"] = (
 # Save results
 # -----------------------------------------------------
 
-output_file = r"C:\Users\gonza\DSE\optimal_launches_max_dry_mass_results.xlsx"
+output_file = script_dir / "optimal_launches_max_dry_mass_results.xlsx"
 
 optimal_launches.to_excel(output_file, index=False)
 

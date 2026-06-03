@@ -95,7 +95,7 @@ best_trajectory_each_day = best_trajectory_each_day.sort_values("Launch day")
 # Save results
 # -----------------------------------------------------
 
-output_file = r"C:\Users\gonza\DSE\minimum_delta_v_trajectory_by_date.xlsx"
+output_file = script_dir / "minimum_delta_v_trajectory_by_date.xlsx"
 
 best_trajectory_each_day.to_excel(output_file, index=False)
 
