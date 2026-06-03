@@ -99,10 +99,23 @@ all_data = pd.concat(
 )
 
 
-# Convert dates and Delta V values
+# Convert dates, Delta V values, and transfer time values
 all_data["Launch date"] = pd.to_datetime(all_data["Launch date"])
 all_data["Delta V [m/s]"] = pd.to_numeric(all_data["Delta V [m/s]"]) - 3000 - 1000
+all_data["Transfer time [days]"] = pd.to_numeric(all_data["Transfer time [days]"])
 
+# Compute arrival date at Jupiter
+all_data["Arrival date"] = (
+    all_data["Launch date"] +
+    pd.to_timedelta(all_data["Transfer time [days]"], unit="D")
+)
+
+# Filter out transfers that arrive after the end of 2047
+latest_arrival_date = pd.Timestamp("2047-12-31 23:59:59")
+
+all_data = all_data[
+    all_data["Arrival date"] <= latest_arrival_date
+].copy()
 
 # Keep only the calendar date, ignoring hours/minutes/seconds
 all_data["Launch day"] = all_data["Launch date"].dt.date
@@ -129,9 +142,9 @@ best_trajectory_each_day.to_excel(output_file, index=False)
 
 print(f"Results saved to: {output_file}")
 
-
 print(best_trajectory_each_day[[
     "Launch day",
+    "Arrival date",
     "Delta V [m/s]",
     "Transfer time [days]",
     "Trajectory"
