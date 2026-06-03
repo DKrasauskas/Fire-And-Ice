@@ -153,7 +153,7 @@ best_below_4000["Transfer time [years]"] = (
 )
 
 # Define transfer-time bins
-bins = [0, 1, 2, 3, 4, 5, 6, np.inf]
+bins = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, np.inf]
 
 labels = [
     "0-1 years",
@@ -162,7 +162,10 @@ labels = [
     "3-4 years",
     "4-5 years",
     "5-6 years",
-    ">6 years"
+    "6-7 years",
+    "7-8 years",
+    "8-9 years",
+    ">9 years"
 ]
 
 best_below_4000["Transfer time bin"] = pd.cut(
@@ -174,13 +177,16 @@ best_below_4000["Transfer time bin"] = pd.cut(
 
 # Colours for transfer-time bins
 time_bin_colours = {
-    "0-1 years": "tab:blue",
+    "0-1 years": "tab:pink",
     "1-2 years": "tab:orange",
-    "2-3 years": "tab:green",
+    "2-3 years": "tab:gray",
     "3-4 years": "tab:red",
     "4-5 years": "tab:purple",
     "5-6 years": "tab:brown",
-    ">6 years": "tab:pink"
+    "6-7 years": "tab:blue",
+    "7-8 years": "tab:green",
+    "8-9 years": "tab:olive",
+    ">9 years": "tab:cyan"
 }
 
 # Markers for trajectories
@@ -245,7 +251,8 @@ colour_legend_handles = [
 colour_legend = plt.legend(
     handles=colour_legend_handles,
     title="Transfer time",
-    loc="upper right"
+    loc="upper left",
+    bbox_to_anchor=(1.02, 1.00)
 )
 
 plt.gca().add_artist(colour_legend)
@@ -253,7 +260,7 @@ plt.gca().add_artist(colour_legend)
 
 # -----------------------------------------------------
 # Legend 2: markers = trajectory
-# only includes trajectories present in the data
+# outside plot
 # -----------------------------------------------------
 
 marker_legend_handles = [
@@ -273,16 +280,20 @@ marker_legend_handles = [
 plt.legend(
     handles=marker_legend_handles,
     title="Trajectory",
-    loc="upper left"
+    loc="upper left",
+    bbox_to_anchor=(1.02, 0.55)
 )
 
 
 plt.xlabel("Launch date")
 plt.ylabel("Minimum Delta V [m/s]")
-plt.title("Optimal launch windows by transfer time and trajectory")
+# plt.title("Optimal launch windows by transfer time and trajectory")
 plt.grid(True)
 plt.xticks(rotation=45)
-plt.tight_layout()
+
+# Leave space on the right for the two legends
+plt.subplots_adjust(right=0.78)
+
 plt.show()
 
 # -----------------------------------------------------
