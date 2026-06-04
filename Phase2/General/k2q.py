@@ -21,19 +21,20 @@ class Europa(Planet):
         self.R = 71488000
         self.a = 664862000
 
-a = 420000000  # m #64862000
-M_s = 8.931938e22 #kg
+a_Io = 420000000  # m #64862000
+a_Europa = 664862000
+M_s = 8.931938e22 #kg1
 G = 6.67e-11
 M_j = 1.898125e27 #lkg 
 R_p = 71488000 #m
-k2q = 1e-5 + 1e-6
-k2q2 = 1e-5
+k2q_Io = 1e-5 + 1e-6
+k2q_Europa = 1e-5
 
 def compute_TA_error(planet, moon, days = 365):
     R_over_a = planet.R / moon.a
     GM_overa3 = G * moon.M / moon.a ** 3
     drift = GM_overa3 * (R_over_a) ** 5 * 9/2
-    print(drift * k2q2 * 60 * 60 * 24)
+    print(drift * k2q_Europa *(60 * 60 * 24)**2)
     days = days
     time_drift = -drift * (60 * 60 * 24 * days) ** 2
     time_drift = time_drift * 1e-6
@@ -64,6 +65,12 @@ error_true_anomaly = get_required_accuracy(moon, result)
 print(error_true_anomaly)
 time = get_required_days(moon, get_TA_erorrMS(moon, 0.1))
 print(time /(60 * 60 * 24))
+
+
+
+
+
+
 # n = (G * M_j / a ** 3) ** 0.5
 
 # constant = 3 * k2q * M_s / M_j * (R_p / a) ** 5 * n * a * 60 * 60 * 24
