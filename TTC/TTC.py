@@ -29,7 +29,7 @@ class GroundStation:
         GainTemp = gainDb - tempDb
         return GainTemp
     
-class Spacecraft:
+class Antenna:
     def __init__(self, dataRate, frequency, GS, efficiency):
         self.dataRate = dataRate
         self.frequency = frequency
@@ -65,13 +65,13 @@ class Spacecraft:
 ESADSN = GroundStation(diameter=35, temp=11.15, efficiency=0.7)
 print(ESADSN.GainTemp(12))
 
-EuSC = Spacecraft(dataRate=DataEu, frequency=12, GS=ESADSN, efficiency=0.55)
-IoSC = Spacecraft(dataRate=DataIo, frequency=12, GS=ESADSN, efficiency=0.55)
+EuMain = Antenna(dataRate=DataEu, frequency=12, GS=ESADSN, efficiency=0.55)
+IoMain = Antenna(dataRate=DataIo, frequency=12, GS=ESADSN, efficiency=0.55)
 
 fig, ax = plt.subplots()
 powers = np.arange(1, 50, .1)
-ax.plot(powers, [EuSC.AntennaSizing(power)[3] for power in powers], label="Europa")
-ax.plot(powers, [IoSC.AntennaSizing(power)[3] for power in powers], label="Io")
+ax.plot(powers, [EuMain.AntennaSizing(power)[3] for power in powers], label="Europa")
+ax.plot(powers, [IoMain.AntennaSizing(power)[3] for power in powers], label="Io")
 ax.set_xlabel("Signal Power (W)")
 ax.set_ylabel("TT&C Mass (kg)")
 ax.legend()
