@@ -17,7 +17,7 @@ from matplotlib.collections import LineCollection
 
 # ─── CONFIGURABLE PARAMETERS ────────────────────────────────────────────────
 
-V_INF_KMS    = 40.0       # km/s  – hyperbolic excess speed (∞ speed)
+V_INF_KMS    = .05       # km/s  – hyperbolic excess speed (∞ speed)
 R_CLOSEST_KM = 40.0     # km above Io surface → centre distance = R_IO + this
 
 # ─── PHYSICAL CONSTANTS ─────────────────────────────────────────────────────
