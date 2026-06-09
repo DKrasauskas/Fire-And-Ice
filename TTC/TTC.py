@@ -2,17 +2,20 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
-DataEu = 20314.49304
-DataIo = 11944.22857
+DataEuTele = 3*1024
+DataEuSec = 1899844.926556508
+
+DataIoTele = 3*1024
+DataIoSec = 165163.8667609429
 
 C = 299792458
 Au = 149597871000
 dist = 6.2*Au
 
-EbN0 = 5.7
-
+EbN0 = 1.2
+# EbN0 = 2
 antennaMassRatio = 4
-systmeMass = 21
+systmeMass = 27.7
 
 class GroundStation:
     def __init__(self, diameter, temp, efficiency):
@@ -39,8 +42,8 @@ class Antenna:
     def reqEirp(self):
         Lamda = C / (self.frequency * 10**9)
         Ls = 20 * math.log10(Lamda/(4 * math.pi * dist))
-        EIRP = EbN0 - Ls - self.GS.GainTemp(self.frequency) + -228.6 + 10 * math.log10(self.dataRate)
-        return EIRP
+        EIRP = EbN0 - Ls - self.GS.GainTemp(self.frequency) -228.6 + 10 * math.log10(self.dataRate)
+        return EIRP + 1.5
     
     def reqGain(self, signalPower):
         EIRP = self.reqEirp()
@@ -63,16 +66,28 @@ class Antenna:
 
 
 ESADSN = GroundStation(diameter=35, temp=11.15, efficiency=0.7)
-print(ESADSN.GainTemp(12))
 
-EuMain = Antenna(dataRate=DataEu, frequency=12, GS=ESADSN, efficiency=0.55)
-IoMain = Antenna(dataRate=DataIo, frequency=12, GS=ESADSN, efficiency=0.55)
+EuMain = Antenna(dataRate=DataEuTele, frequency=8.4, GS=ESADSN, efficiency=0.55)
+IoMain = Antenna(dataRate=DataIoTele, frequency=8.4, GS=ESADSN, efficiency=0.55)
+
+EuMainSec = Antenna(dataRate=DataEuSec, frequency=32, GS=ESADSN, efficiency=0.55)
+IoMainSec = Antenna(dataRate=DataIoSec, frequency=32, GS=ESADSN, efficiency=0.55)
 
 fig, ax = plt.subplots()
 powers = np.arange(1, 50, .1)
-ax.plot(powers, [EuMain.AntennaSizing(power)[3] for power in powers], label="Europa")
-ax.plot(powers, [IoMain.AntennaSizing(power)[3] for power in powers], label="Io")
+ax.plot(powers, [EuMain.AntennaSizing(power)[0] for power in powers], label="Europa Safe")
+ax.plot(powers, [IoMain.AntennaSizing(power)[0] for power in powers], label="Io Safe")
+ax.plot(powers, [EuMainSec.AntennaSizing(power)[0] for power in powers], label="Europa")
+ax.plot(powers, [IoMainSec.AntennaSizing(power)[0] for power in powers], label="Io")
 ax.set_xlabel("Signal Power (W)")
-ax.set_ylabel("TT&C Mass (kg)")
+ax.set_ylabel("Diameter [m]")
 ax.legend()
 plt.show()
+
+print(f"Europa Diameter, Area, Antenna mass and total mass: {EuMainSec.AntennaSizing(35)}")
+print(f"Io Diameter, Area, Antenna mass and total mass: {IoMainSec.AntennaSizing(35)}")
+
+print(f"Europa Safe Diameter, Area, Antenna mass and total mass: {EuMain.AntennaSizing(35)}")
+print(f"Io Safe Diameter, Area, Antenna mass and total mass: {IoMain.AntennaSizing(35)}")
+
+print((math.sqrt(0.5/12)*70*(C/(32*10**9)))/2.01)
