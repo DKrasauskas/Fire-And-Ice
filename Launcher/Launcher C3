@@ -44,6 +44,12 @@ def dV_to_C3(dV, parkingAlt):
     C3 = V_inf**2
     return C3
 
+def TransferStageDv(TransferDv, launcher, payloadmass):
+    launcherDv = launcher.stage_Dv(payloadmass)["Total"]
+    leftOverDv = launcherDv - dVorbit
+
+    TSDv = TransferDv*1000 - leftOverDv
+    return TSDv
 
 General = Launcher(stages={2: {"Wetmass": 0, "propellant mass": 0, "isp": 0, "Leftover propellant": 0}})
 Launchers = {
@@ -109,76 +115,82 @@ LauncherStyle = {
     "Falcon Heavy Booster+Core landing": '#FFCC66',
 }
 
-print(Launchers["Neutron"].stage_Dv(payload_mass=16000))
+
 #4715
 #4233
 reqC3Best = dV_to_C3(3.850, 270000)
 reqC3Middle = dV_to_C3(4.233, 270000)
 reqC3Worst = dV_to_C3(4.715, 270000)
-fig, ax = plt.subplots()
-
-payloads = np.arange(0, 65000, 10)
 
 for launcher_name, launcher in Launchers.items():
-    DV_values = [launcher.stage_Dv(payload)["Total"] for payload in payloads]
-    ax.plot(payloads, DV_values, label=launcher_name, color=LauncherStyle[launcher_name])
+    print(launcher_name, TransferStageDv(3.850, launcher, 3715))
 
-ax.axhline(9500, color='red', linestyle='--', linewidth=2, label='Required Δv for LEO')
-ax.axvline(3715, color='red', linestyle='--', linewidth=2, label="Estimated payload mass")
+plotDv = True
+if plotDv: 
+    fig, ax = plt.subplots()
 
-# Now limits are set from your data, grab them
-xmin, xmax = ax.get_xlim()
-ymin, ymax = ax.get_ylim()
+    payloads = np.arange(0, 65000, 10)
 
-# Shade bottom strip (full width, below 9500)
-ax.axhspan(ymin, 9500, color='red', alpha=0.15, zorder=0)
-# Shade top-left box (left of 3715, above 9500)
-ax.fill_betweenx([9500, ymax], xmin, 3715, color='red', alpha=0.15, zorder=0)
+    for launcher_name, launcher in Launchers.items():
+        DV_values = [launcher.stage_Dv(payload)["Total"] for payload in payloads]
+        ax.plot(payloads, DV_values, label=launcher_name, color=LauncherStyle[launcher_name])
 
-ax.set_xlim(xmin, xmax)
-ax.set_ylim(ymin, ymax)
+    ax.axhline(9500, color='red', linestyle='--', linewidth=2, label='Required Δv for LEO')
+    ax.axvline(3715, color='red', linestyle='--', linewidth=2, label="Estimated payload mass")
 
-ax.set_xlabel("Payload Mass")
-ax.set_ylabel("Delta V")
-ax.set_title("Delta V vs Payload Mass")
-ax.legend()
-ax.grid(True)
-ax.minorticks_on()
-ax.grid(which='minor', linestyle=':', linewidth=0.5)
-plt.show()
+    # Now limits are set from your data, grab them
+    xmin, xmax = ax.get_xlim()
+    ymin, ymax = ax.get_ylim()
 
-fig, ax = plt.subplots()
+    # Shade bottom strip (full width, below 9500)
+    ax.axhspan(ymin, 9500, color='red', alpha=0.15, zorder=0)
+    # Shade top-left box (left of 3715, above 9500)
+    ax.fill_betweenx([9500, ymax], xmin, 3715, color='red', alpha=0.15, zorder=0)
 
-payloads = np.arange(0, 12000, 10)
-for launcher_name, launcher in Launchers.items():
-    C3_values = [launcher.launcher_C3(payload, parkingAlt=270000) for payload in payloads]
-    ax.plot(payloads, C3_values, label=launcher_name, color=LauncherStyle[launcher_name])
+    ax.set_xlim(xmin, xmax)
+    ax.set_ylim(ymin, ymax)
 
-ax.axhline(reqC3Best, color='red', linestyle='--', linewidth=2, label='Required C3')
-ax.axhline(reqC3Worst, color='red', linestyle='--', linewidth=2)
-ax.axhline(reqC3Middle, color='red', linestyle='--', linewidth=2)
-ax.axvline(3715, color='red', linestyle='--', linewidth=2, label="Estimated payload mass")
+    ax.set_xlabel("Payload Mass")
+    ax.set_ylabel("Delta V")
+    ax.set_title("Delta V vs Payload Mass")
+    ax.legend()
+    ax.grid(True)
+    ax.minorticks_on()
+    ax.grid(which='minor', linestyle=':', linewidth=0.5)
+    plt.show()
 
-xmin, xmax = ax.get_xlim()
-ymin, ymax = ax.get_ylim()
+    fig, ax = plt.subplots()
 
-# Shade bottom strip (full width, below 9500)
-ax.axhspan(ymin, reqC3Best, color='red', alpha=0.15, zorder=0)
-# Shade top-left box (left of 3715, above 9500)
-ax.fill_betweenx([reqC3Best, ymax], xmin, 3715, color='red', alpha=0.15, zorder=0)
+    payloads = np.arange(0, 12000, 10)
+    for launcher_name, launcher in Launchers.items():
+        C3_values = [launcher.launcher_C3(payload, parkingAlt=270000) for payload in payloads]
+        ax.plot(payloads, C3_values, label=launcher_name, color=LauncherStyle[launcher_name])
 
-ax.set_xlim(xmin, xmax)
-ax.set_ylim(ymin, ymax)
+    ax.axhline(reqC3Best, color='red', linestyle='--', linewidth=2, label='Required C3')
+    ax.axhline(reqC3Worst, color='red', linestyle='--', linewidth=2)
+    ax.axhline(reqC3Middle, color='red', linestyle='--', linewidth=2)
+    ax.axvline(3715, color='red', linestyle='--', linewidth=2, label="Estimated payload mass")
+
+    xmin, xmax = ax.get_xlim()
+    ymin, ymax = ax.get_ylim()
+
+    # Shade bottom strip (full width, below 9500)
+    ax.axhspan(ymin, reqC3Best, color='red', alpha=0.15, zorder=0)
+    # Shade top-left box (left of 3715, above 9500)
+    ax.fill_betweenx([reqC3Best, ymax], xmin, 3715, color='red', alpha=0.15, zorder=0)
+
+    ax.set_xlim(xmin, xmax)
+    ax.set_ylim(ymin, ymax)
 
 
-ax.set_xlabel("Payload Mass")
-ax.set_ylabel("C3")
-ax.set_title("C3 vs Payload Mass")
-ax.legend()
-ax.grid(True)
-ax.minorticks_on()
-ax.grid(which='minor', linestyle=':', linewidth=0.5)
-plt.show()
+    ax.set_xlabel("Payload Mass")
+    ax.set_ylabel("C3")
+    ax.set_title("C3 vs Payload Mass")
+    ax.legend()
+    ax.grid(True)
+    ax.minorticks_on()
+    ax.grid(which='minor', linestyle=':', linewidth=0.5)
+    plt.show()
 
 #Function to calculate propellant leftover and delta v required for landing a booster.
 
