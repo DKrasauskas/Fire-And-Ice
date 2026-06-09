@@ -68,11 +68,31 @@ data_VVE = pd.read_csv(
     usecols=[0, 1]
 )
 
+
 data_VVEE = pd.read_csv(
     script_dir / "VVEE.csv",
     usecols=[0, 1]
 )
 
+data_VEVE = pd.read_csv(
+    script_dir / "VEVE.csv",
+    usecols=[0, 1]
+)
+
+data_VEM = pd.read_csv(
+    script_dir / "VEM.csv",
+    usecols=[0, 1]
+)
+
+data_ME = pd.read_csv(
+    script_dir / "ME.csv",
+    usecols=[0, 1]
+)
+
+data_MEE = pd.read_csv(
+    script_dir / "MEE.csv",
+    usecols=[0, 1]
+)
 
 
 # -----------------------------------------------------
@@ -83,9 +103,9 @@ data_EVE.columns = ["Launch date", "Delta V [m/s]"]
 data_EVEE.columns = ["Launch date", "Delta V [m/s]"]
 data_VE.columns = ["Launch date", "Delta V [m/s]"]
 data_VEE.columns = ["Launch date", "Delta V [m/s]"]
-# data_VEM.columns = ["Launch date", "Delta V [m/s]"]
-# data_VME.columns = ["Launch date", "Delta V [m/s]"]
-# data_VEVE.columns = ["Launch date", "Delta V [m/s]"]
+data_VEM.columns = ["Launch date", "Delta V [m/s]"]
+#data_VME.columns = ["Launch date", "Delta V [m/s]"]
+data_VEVE.columns = ["Launch date", "Delta V [m/s]"]
 data_VVE.columns = ["Launch date", "Delta V [m/s]"]
 data_VVEE.columns = ["Launch date", "Delta V [m/s]"]
 
@@ -93,9 +113,9 @@ data_EVE["Trajectory"] = "EVE"
 data_EVEE["Trajectory"] = "EVEE"
 data_VE["Trajectory"] = "VE"
 data_VEE["Trajectory"] = "VEE"
-# data_VEM["Trajectory"] = "VEM"
+data_VEM["Trajectory"] = "VEM"
 # data_VME["Trajectory"] = "VME"
-# data_VEVE["Trajectory"] = "VEVE"
+data_VEVE["Trajectory"] = "VEVE"
 data_VVE["Trajectory"] = "VVE"
 data_VVEE["Trajectory"] = "VVEE"
 

@@ -86,8 +86,8 @@ departure_semi_major_axis = 6700000
 departure_eccentricity    = 0
 
 # Arrival orbit
-arrival_semi_major_axis = 9000000000
-arrival_eccentricity    = 0.89
+arrival_semi_major_axis = np.inf#9000000000
+arrival_eccentricity    = 0#0.89
 
 # Create simplified system of bodies
 bodies = environment_setup.create_simplified_system_of_bodies()

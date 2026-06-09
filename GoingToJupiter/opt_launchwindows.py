@@ -392,7 +392,7 @@ optimal_launches["Spacecraft final mass fraction [-]"] = results["spacecraft_fin
 # Save and print results
 # -----------------------------------------------------
 
-output_file = r"C:\Users\gonza\DSE\optimal_launches_spacecraft_propulsion_results.xlsx"
+output_file = r"optimal_launches_spacecraft_propulsion_results.xlsx"
 optimal_launches.to_excel(output_file, index=False)
 
 print(f"Results saved to: {output_file}")
