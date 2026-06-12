@@ -19,7 +19,7 @@ SIGMA_REF = 0.07e-3
 
 L = 8
 H = 40e3
-v = 30e3
+v = 22e3
 SIGMA = 0.003e-3
 
 def kaula_signal(l, K):

@@ -26,7 +26,7 @@ k2q_Europa = 1e-5
 k2q_Io = 1e-5 + 1e-6
 
 planet = Jupiter()
-moon = Io()
+moon = Europa()
 
 def get_required_days(planet, moon, sigma_x, delta_k2q):
     drift_bare = (9/2) * G * moon.M / moon.a**3 * (planet.R / moon.a)**5
@@ -47,5 +47,5 @@ def get_required_days(planet, moon, sigma_x, delta_k2q):
 
     return t_seconds / 86400
 
-days = get_required_days(planet, moon, sigma_x = 5, delta_k2q=2e-6)
+days = get_required_days(planet, moon, sigma_x = 0.2, delta_k2q=1.3e-4)
 print(f"Required observation time:         {days:.1f} days  ({days/365:.2f} years)")
