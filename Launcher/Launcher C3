@@ -5,10 +5,11 @@ import matplotlib.pyplot as plt
 
 import matplotlib as mpl
 reds = mpl.colormaps['Reds']
-g = 9.81
+g = 9.8065
 R = 6371000
 Mu = 3.986*10**14
 dVorbit = 9500
+PayloadMass = 2643.834
 
 class Launcher:
     def __init__(self, stages):
@@ -26,7 +27,7 @@ class Launcher:
         dvTotal = sum(dvs.values())
         dvs["Total"] = dvTotal
         return dvs
-    
+
     def launcher_C3(self, payload_mass, parkingAlt):
         dv_total = self.stage_Dv(payload_mass)["Total"]
         V_escape = math.sqrt(2*Mu/(parkingAlt+R))/1000
@@ -36,6 +37,7 @@ class Launcher:
         V_inf = math.sqrt(V_local**2 - V_escape**2) if V_local > V_escape else 0
         C3 = V_inf**2
         return C3
+
 def dV_to_C3(dV, parkingAlt):
     V_escape = math.sqrt(2*Mu/(parkingAlt+R))/1000
     V_orbit = math.sqrt(Mu/(parkingAlt+R))/1000
@@ -49,7 +51,14 @@ def TransferStageDv(TransferDv, launcher, payloadmass):
     leftOverDv = launcherDv - dVorbit
 
     TSDv = TransferDv*1000 - leftOverDv
+    if TSDv < 0: TSDv = 0
     return TSDv
+
+def transfer_mass(massJupiter, dv):
+    IspTrans = 430
+    epower = np.e**(dv/(IspTrans * g))
+    Mwet = massJupiter * (epower - 1)/(1-0.1*epower)
+    return Mwet
 
 General = Launcher(stages={2: {"Wetmass": 0, "propellant mass": 0, "isp": 0, "Leftover propellant": 0}})
 Launchers = {
@@ -78,7 +87,6 @@ Launchers = {
                            1: {"Wetmass": 433100, "propellant mass": 410900, "isp": 312, "Leftover propellant": 8578.389345}})
 ,"Falcon9 RTLS" : Launcher(stages={2: {"Wetmass": 111500, "propellant mass": 107500, "isp": 348, "Leftover propellant": 0},
                            1: {"Wetmass": 433100, "propellant mass": 410900, "isp": 312, "Leftover propellant": 30567.82558}})                           
-                           
 
 ,"Falcon Heavy" : Launcher(stages={2: {"Wetmass": 111500, "propellant mass": 107500, "isp": 348, "Leftover propellant": 0},
                                    1: {"Wetmass": 145470, "propellant mass": 123270, "isp": 312, "Leftover propellant": 0},
@@ -118,78 +126,139 @@ LauncherStyle = {
 
 #4715
 #4233
-reqC3Best = dV_to_C3(3.850, 270000)
-reqC3Middle = dV_to_C3(4.233, 270000)
-reqC3Worst = dV_to_C3(4.715, 270000)
+reqDv = 4.233
+reqC3 = dV_to_C3(reqDv, 270000)
 
+#Transfer stage calculations
+px = 1/plt.rcParams['figure.dpi']
+fig, ax = plt.subplots(figsize=(2000*px, 1000*px))
+payloadrange = np.arange(2000, 5500, 10)
 for launcher_name, launcher in Launchers.items():
-    print(launcher_name, TransferStageDv(3.850, launcher, 3715))
+    TransMasses = []
+    for mass in payloadrange:
+        # print(launcher_name)
+        try:
+            iterations = np.arange(0,300)
+            values = []
+            wet = mass
+            for i in iterations:
+                # print("Wetmass: ",wet)
+                TransDV = TransferStageDv(reqDv, launcher, wet)
+                # print("TransferdV: ",TransDV)
+                TransMass = transfer_mass(mass, TransDV)
+                # print("TransMass: ", TransMass, "\n")
+                values.append(TransDV)
+                wet = mass+TransMass
+                if TransDV > reqDv*1000:
+                    TransMass = math.nan
+                    TransDV = math.nan
+                # print(i)
+            # print(launcher_name, TransMass, " kg")
+            TransMasses.append(TransMass)
+            # ax.plot(iterations, values, label=launcher_name, color=LauncherStyle[launcher_name])
+        except:
+            TransMass = math.nan
+            TransMasses.append(TransMass)
+            print(launcher_name)
+
+    ax.plot(payloadrange, TransMasses, label=launcher_name, color=LauncherStyle[launcher_name])
+        
+ax.axvline(PayloadMass, color='red', linestyle='--', linewidth=2)
+#3715
+xmin, xmax = ax.get_xlim()
+ymin, ymax = ax.get_ylim()
+
+# Shade bottom strip (full width, below 9500)
+ax.axvspan(ymin, PayloadMass, color='red', alpha=0.15, zorder=0)
+# Shade top-left box (left of 3715, above 9500)
+
+ax.set_xlim(xmin, xmax)
+ax.set_ylim(ymin, ymax)
+ax.set_xlabel("Payload Mass [kg]", fontsize = 15)
+ax.set_ylabel("Transfer Stage Mass [kg]", fontsize =15)
+# ax.set_title("Transfer stage mass vs payloadmass")
+ax.legend(fontsize=15)
+
+ax.grid(True)
+ax.minorticks_on()
+ax.grid(which='minor', linestyle=':', linewidth=0.5)
+fig.tight_layout
+fig.savefig("Transfer mass", dpi=500, bbox_inches='tight')
+plt.show()
+
 
 plotDv = True
-if plotDv: 
-    fig, ax = plt.subplots()
 
+if plotDv: 
+    fig, ax = plt.subplots(figsize=(1000*px, 1000*px))
     payloads = np.arange(0, 65000, 10)
 
     for launcher_name, launcher in Launchers.items():
         DV_values = [launcher.stage_Dv(payload)["Total"] for payload in payloads]
         ax.plot(payloads, DV_values, label=launcher_name, color=LauncherStyle[launcher_name])
 
-    ax.axhline(9500, color='red', linestyle='--', linewidth=2, label='Required Δv for LEO')
-    ax.axvline(3715, color='red', linestyle='--', linewidth=2, label="Estimated payload mass")
+    ax.axhline(9500, color='red', linestyle='--', linewidth=2)
+    ax.axvline(PayloadMass, color='red', linestyle='--', linewidth=2)
+    # ax.axvline(3715, color='grey', linestyle='--', linewidth=2)
 
     # Now limits are set from your data, grab them
     xmin, xmax = ax.get_xlim()
     ymin, ymax = ax.get_ylim()
+    ymin = 8000
 
     # Shade bottom strip (full width, below 9500)
     ax.axhspan(ymin, 9500, color='red', alpha=0.15, zorder=0)
     # Shade top-left box (left of 3715, above 9500)
-    ax.fill_betweenx([9500, ymax], xmin, 3715, color='red', alpha=0.15, zorder=0)
+    ax.fill_betweenx([9500, ymax], xmin, PayloadMass, color='red', alpha=0.15, zorder=0)
 
     ax.set_xlim(xmin, xmax)
     ax.set_ylim(ymin, ymax)
 
-    ax.set_xlabel("Payload Mass")
-    ax.set_ylabel("Delta V")
-    ax.set_title("Delta V vs Payload Mass")
-    ax.legend()
+    ax.set_xlabel("Payload Mass [kg]", fontsize = 15)
+    ax.set_ylabel("Delta V [m/s]", fontsize = 15)
+    # ax.set_title("Delta V vs Payload Mass")
+    ax.legend(fontsize = 15)
     ax.grid(True)
     ax.minorticks_on()
     ax.grid(which='minor', linestyle=':', linewidth=0.5)
+    fig.tight_layout
+    fig.savefig("Payload dv", dpi=500, bbox_inches='tight')
     plt.show()
 
-    fig, ax = plt.subplots()
-
+    fig, ax = plt.subplots(figsize=(1000*px, 1000*px))
+    
     payloads = np.arange(0, 12000, 10)
     for launcher_name, launcher in Launchers.items():
         C3_values = [launcher.launcher_C3(payload, parkingAlt=270000) for payload in payloads]
         ax.plot(payloads, C3_values, label=launcher_name, color=LauncherStyle[launcher_name])
 
-    ax.axhline(reqC3Best, color='red', linestyle='--', linewidth=2, label='Required C3')
-    ax.axhline(reqC3Worst, color='red', linestyle='--', linewidth=2)
-    ax.axhline(reqC3Middle, color='red', linestyle='--', linewidth=2)
-    ax.axvline(3715, color='red', linestyle='--', linewidth=2, label="Estimated payload mass")
+    # ax.axhline(reqC3Best, color='red', linestyle='--', linewidth=2, label='Required C3')
+    # ax.axhline(reqC3Worst, color='red', linestyle='--', linewidth=2)
+    ax.axhline(reqC3, color='red', linestyle='--', linewidth=2)
+    ax.axhline(77.37, color='grey', linestyle='--', linewidth=2)
+    ax.axvline(PayloadMass, color='red', linestyle='--', linewidth=2)
 
     xmin, xmax = ax.get_xlim()
     ymin, ymax = ax.get_ylim()
 
     # Shade bottom strip (full width, below 9500)
-    ax.axhspan(ymin, reqC3Best, color='red', alpha=0.15, zorder=0)
+    ax.axhspan(ymin, reqC3, color='red', alpha=0.15, zorder=0)
     # Shade top-left box (left of 3715, above 9500)
-    ax.fill_betweenx([reqC3Best, ymax], xmin, 3715, color='red', alpha=0.15, zorder=0)
+    ax.fill_betweenx([reqC3, ymax], xmin, PayloadMass, color='red', alpha=0.15, zorder=0)
 
     ax.set_xlim(xmin, xmax)
     ax.set_ylim(ymin, ymax)
 
 
-    ax.set_xlabel("Payload Mass")
-    ax.set_ylabel("C3")
-    ax.set_title("C3 vs Payload Mass")
-    ax.legend()
+    ax.set_xlabel("Payload Mass [kg]", fontsize = 15)
+    ax.set_ylabel(r"$C_3$ [m$^2$/s$^2$]", fontsize = 15)
+    # ax.set_title("C3 vs Payload Mass")
+    ax.legend(fontsize=15)
     ax.grid(True)
     ax.minorticks_on()
     ax.grid(which='minor', linestyle=':', linewidth=0.5)
+    fig.tight_layout
+    fig.savefig("Payload C3", dpi=500, bbox_inches='tight')
     plt.show()
 
 #Function to calculate propellant leftover and delta v required for landing a booster.

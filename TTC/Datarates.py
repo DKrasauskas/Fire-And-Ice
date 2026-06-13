@@ -6,62 +6,128 @@ EuOrbit = 2.087071
 InstrumentRates = {
     "GALA" : 10,
     "3GM" : 1.5,
-    "Telemetry" : 2
+    "Telemetry" : 25
 }   
 
-InstrumentDataSize = {
+ImagingData = {
     "Thermal" : 9.2 * 1024,
     "Imaging" : 25.17 * 1024
 }
 
-#gala for flybys will only make data for abbout 2 minutes, afterwards it can send data
-#over 50 days
-#3GM will only sent data for abbout 2 minutes, and has to be send during those 2 minutes.
-
-IoRates = {
-    # "GALA" : {"OperationTime": 2 * 60, "DataReturnTime": 50 * 24 * 3600, "DataStorageTime" : 2 * 60},
-    # "3GM" : {"OperationTime": 2*60, "DataReturnTime": 2*60, "DataStorageTime" : 0},
-    "Telemetry" : {"OperationTime": 1, "DataReturnTime": 1, "DataStorageTime" : 0}
+IoInstruments = {
+    "GALA" : {"Generation": 200, "Downlink": 12 * 24 * 3600, "Storage" : 200},
+    "3GM" : {"Generation": 200, "Downlink": 200, "Storage" : 200},
+    "Telemetry" : {"Generation": 12*24*3600, "Downlink": 12*24*3600, "Storage" : 200}
 }
 
-EuRates = {
-    # "GALA" : {"OperationTime": EuOrbit * 3600, "DataReturnTime": EuContact * 3600, "DataStorageTime" : EuEclipse * 3600},
-    # "3GM" : {"OperationTime": EuContact * 3600, "DataReturnTime": EuContact * 3600, "DataStorageTime" : 0},
-    "Telemetry" : {"OperationTime": EuOrbit * 3600, "DataReturnTime": EuContact * 3600, "DataStorageTime" : EuEclipse * 3600}
+EuInstruments = {
+    "GALA" : {"Generation": EuOrbit * 3600, "Downlink": EuContact * 3600, "Storage" : EuOrbit * 3600},
+    "3GM" : {"Generation": EuContact * 3600, "Downlink": EuContact * 3600, "Storage" : EuOrbit * 3600},
+    "Telemetry" : {"Generation": EuOrbit * 3600, "Downlink": EuContact * 3600, "Storage" : EuOrbit * 3600}
 
 }
 
-
-IoData = {
-    # "Thermal" : {"NImages": 24, "ReturnTime" : 50*24*3600},
-    # "Imaging" : {"NImages": 24, "ReturnTime" : EuContact * 3600}
+IoImaging = {
+    "Thermal" : {"NImages": 400, "Downlink" : 12*24*3600, "Generation" : 200},
+    "Imaging" : {"NImages": 400, "Downlink" : 12*24*3600, "Generation" : 200}
 }
-EuData = {
-    # "Thermal" : {"NImages": 0, "ReturnTime" : 50*24*3600},
-    # "Imaging" : {"NImages": 320, "ReturnTime" : EuContact * 3600}
+EuImaging = {
+    "Thermal" : {"NImages": 0, "Downlink" : EuContact * 3600, "Generation" : EuOrbit * 3600},
+    "Imaging" : {"NImages": 320, "Downlink" : EuContact * 3600, "Generation" : EuOrbit * 3600}
 }
-IoDatarate = sum([InstrumentRates[inst]*IoRates[inst]["OperationTime"]/IoRates[inst]["DataReturnTime"] for inst in IoRates])
-EuDatarate = sum([InstrumentRates[inst]*EuRates[inst]["OperationTime"]/EuRates[inst]["DataReturnTime"] for inst in EuRates])
 
-# print(f"Data rate for Io: {IoDatarate} kbps")
-# print(f"Data rate for Europa: {EuDatarate } kbps \n")
+IoStorage = {
+    "GALA" : IoInstruments["GALA"]["Storage"]*InstrumentRates["GALA"],
+    "3GM" : IoInstruments["3GM"]["Storage"]*InstrumentRates["3GM"],
+    "Telemetry" : IoInstruments["Telemetry"]["Storage"]*InstrumentRates["Telemetry"],
+    "Thermal" : IoImaging["Thermal"]["NImages"]*ImagingData["Thermal"],
+    "Imaging" : IoImaging["Imaging"]["NImages"]*ImagingData["Imaging"]
+}
 
-print(f"Io data stored: {sum([InstrumentRates[inst]*IoRates[inst]["OperationTime"] for inst in IoRates])/1024} mb")
-print(f"Eu data stored: {sum([InstrumentRates[inst]*EuRates[inst]["OperationTime"] for inst in EuRates])/1024} mb \n")
+EuStorage = {
+    "GALA" : EuInstruments["GALA"]["Storage"]*InstrumentRates["GALA"],
+    "3GM" : EuInstruments["3GM"]["Storage"]*InstrumentRates["3GM"],
+    "Telemetry" : EuInstruments["Telemetry"]["Storage"]*InstrumentRates["Telemetry"],
+    "Thermal" : EuImaging["Thermal"]["NImages"]*ImagingData["Thermal"],
+    "Imaging" : EuImaging["Imaging"]["NImages"]*ImagingData["Imaging"]
+}
 
+EuGeneration = {
+    "GALA" : EuInstruments["GALA"]["Generation"]*InstrumentRates["GALA"],
+    "3GM" : EuInstruments["3GM"]["Generation"]*InstrumentRates["3GM"],
+    "Telemetry" : EuInstruments["Telemetry"]["Generation"]*InstrumentRates["Telemetry"],
+    "Thermal" : EuImaging["Thermal"]["NImages"]*ImagingData["Thermal"],
+    "Imaging" : EuImaging["Imaging"]["NImages"]*ImagingData["Imaging"]
+}
 
-IoImagingDatarate = sum([InstrumentDataSize[inst]*IoData[inst]["NImages"]/IoData[inst]["ReturnTime"] for inst in IoData])
-EuImagingDatarate = sum([InstrumentDataSize[inst]*EuData[inst]["NImages"]/EuData[inst]["ReturnTime"] for inst in EuData])
+IoGeneration = {
+    "GALA" : IoInstruments["GALA"]["Generation"]*InstrumentRates["GALA"],
+    "3GM" : IoInstruments["3GM"]["Generation"]*InstrumentRates["3GM"],
+    "Telemetry" : IoInstruments["Telemetry"]["Generation"]*InstrumentRates["Telemetry"],
+    "Thermal" : IoImaging["Thermal"]["NImages"]*ImagingData["Thermal"],
+    "Imaging" : IoImaging["Imaging"]["NImages"]*ImagingData["Imaging"]
+}
 
-IoImagingStorage = sum([InstrumentDataSize[inst]*IoData[inst]["NImages"] for inst in IoData])
-EuImagingStorage = sum([InstrumentDataSize[inst]*EuData[inst]["NImages"] for inst in EuData])
-# print(f"Data rate for Io imaging: {IoImagingDatarate} kbps\n")
-# print(f"Data rate for EU imaging: {EuImagingDatarate} kbps\n")
-# print(f"Data storage Io = {IoImagingStorage/1024}")
-# print(f"Data storage Eu = {EuImagingStorage/1024}\n")
+EuGenRate = {
+    "GALA" : InstrumentRates["GALA"],
+    "3GM" : InstrumentRates["3GM"],
+    "Telemetry" : InstrumentRates["Telemetry"],
+    "Thermal" : EuGeneration["Thermal"]/EuImaging["Thermal"]["Generation"],
+    "Imaging" : EuGeneration["Imaging"]/EuImaging["Imaging"]["Generation"]
+}
 
-# print(f"Only science for europa = {EuDatarate}")
-print(f"Total europa = {(EuImagingDatarate+EuDatarate)*1024}\n")
+IoGenRate = {
+    "GALA" : InstrumentRates["GALA"],
+    "3GM" : InstrumentRates["3GM"],
+    "Telemetry" : InstrumentRates["Telemetry"],
+    "Thermal" : IoGeneration["Thermal"]/IoImaging["Thermal"]["Generation"],
+    "Imaging" : IoGeneration["Imaging"]/IoImaging["Imaging"]["Generation"]
+}
 
-print(f"Only imaging for Io = {IoImagingDatarate}")
-print(f"Total io = {(IoImagingDatarate+IoDatarate)*1024}\n")
+IoDownlink = {
+    "GALA" : IoGeneration["GALA"]/IoInstruments["GALA"]["Downlink"],
+    "3GM" : IoGeneration["3GM"]/IoInstruments["3GM"]["Downlink"],
+    "Telemetry" : IoGeneration["Telemetry"]/IoInstruments["Telemetry"]["Downlink"],
+    "Thermal" : IoGeneration["Thermal"]/IoImaging["Thermal"]["Downlink"],
+    "Imaging" : IoGeneration["Imaging"]/IoImaging["Imaging"]["Downlink"],
+}
+
+EuDownlink = {
+    "GALA" : EuGeneration["GALA"]/EuInstruments["GALA"]["Downlink"],
+    "3GM" : EuGeneration["3GM"]/EuInstruments["3GM"]["Downlink"],
+    "Telemetry" : EuGeneration["Telemetry"]/EuInstruments["Telemetry"]["Downlink"],
+    "Thermal" : EuGeneration["Thermal"]/EuImaging["Thermal"]["Downlink"],
+    "Imaging" : EuGeneration["Imaging"]/EuImaging["Imaging"]["Downlink"],
+}
+
+print("Io Generation")
+print(f"{IoGeneration}")
+print(f"Total: {sum(IoGeneration[inst] for inst in IoGeneration)/1024/1025} Gbit\n")
+
+print("Eu Generation")
+print(f"{EuGeneration}")
+print(f"total: {sum(EuGeneration[inst] for inst in EuGeneration)/1024/1025} Gbit\n")
+
+print("Io Storage")
+print(f"{IoStorage}")
+print(f"Total: {sum(IoStorage[inst] for inst in IoStorage)/1024/1025} Gbit\n")
+
+print("Eu Storage")
+print(f"{EuStorage}")
+print(f"total: {sum(EuStorage[inst] for inst in EuStorage)/1024/1025} Gbit\n")
+
+print("Io Generation Rate")
+print(f": {IoGenRate}")
+print(f"Total: {sum(IoGenRate[inst] for inst in IoGenRate)/1024} Mbps \n")
+
+print("Eu Generation Rate")
+print(f": {EuGenRate}")
+print(f"Total: {sum(EuGenRate[inst] for inst in EuGenRate)/1024} Mbps \n")
+
+print("Io Downlink")
+print(f"{IoDownlink}")
+print(f"Total: {sum(IoDownlink[inst] for inst in IoDownlink)*1024} kbps \n")
+
+print("Eu Downlink")
+print(f"{EuDownlink}")
+print(f"Total: {sum(EuDownlink[inst] for inst in EuDownlink)*1024} kbps \n")

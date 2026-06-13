@@ -6,16 +6,18 @@ DataEuTele = 3*1024
 DataEuSec = 1899844.926556508
 
 DataIoTele = 3*1024
-DataIoSec = 165163.8667609429
+DataIoSec = 41042.125432098765
 
 C = 299792458
 Au = 149597871000
 dist = 6.2*Au
 
+# EbN0 = 1.2
 EbN0 = 1.2
 # EbN0 = 2
-antennaMassRatio = 4
-systmeMass = 27.7
+antennaMassRatio = 2.652582385
+antennaFixed = 1.312 + 2.5
+systmeMass = 26.2
 
 class GroundStation:
     def __init__(self, diameter, temp, efficiency):
@@ -58,7 +60,7 @@ class Antenna:
         diameter = math.sqrt(gainLinear * (Lamda / math.pi) ** 2 / self.efficiency)
         
         antennaArea = math.pi * (diameter / 2) ** 2
-        antennaMass = antennaArea * antennaMassRatio
+        antennaMass = antennaArea * antennaMassRatio + antennaFixed
         totalMass = systmeMass + antennaMass
 
         return diameter, antennaArea, antennaMass, totalMass
