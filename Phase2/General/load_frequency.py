@@ -1,13 +1,3 @@
-"""
-SoIaF Structural Sizing Script
-Sizes primary structure panels and central cylinder against:
-  1. Launch load stress  (REQ-MEC-01, REQ-MEC-02)
-  2. Fundamental frequency (REQ-MEC-03, REQ-MEC-04, REQ-MEC-05)
-  3. Panel buckling under axial compression
-
-All units SI unless stated otherwise.
-"""
-
 import numpy as np
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -122,8 +112,6 @@ print("=" * 65)
 F_axial   = m_sc * a_axial    # Total axial force [N]
 F_lateral = m_sc * a_lateral  # Total lateral force [N]
 
-# Cross-sectional area of 4 side panels (face sheets carry the axial load)
-# Each panel: 2 face sheets of thickness t_face, width = bus_side
 A_panel_total = 4 * bus_side * 2 * t_face_req  # total face sheet area [m²]
 
 sigma_axial   = F_axial   / A_panel_total
@@ -146,20 +134,12 @@ if sigma_lateral < sigma_y / SF_yield:
 else:
     print(f"  ✗ Lateral stress EXCEEDS allowable — increase t_face")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PART 3 — CENTRAL CYLINDER (THRUST TUBE) SIZING
-# ─────────────────────────────────────────────────────────────────────────────
 print("\n" + "=" * 65)
 print("PART 3 — CENTRAL CYLINDER (THRUST TUBE)")
 print("=" * 65)
 
-# Cylinder wall thickness from axial stress
-# sigma = F / (2 * pi * R * t) < sigma_y / SF
 t_cyl_stress = F_axial / (2 * np.pi * R_cyl * sigma_y / SF_yield)
 
-# Cylinder frequency (axial, fixed-free beam model):
-# f = (1/(2L)) * sqrt(E/rho)  for solid rod — conservative lower bound
-# For thin-walled cylinder: f_axial ≈ (1/2L) * sqrt(E/rho_mat)
 f_cyl_axial = (1 / (2 * L_cyl)) * np.sqrt(E / rho_mat)
 
 # Euler buckling of cylinder under axial load
@@ -178,27 +158,21 @@ print(f"  Cylinder axial freq: {f_cyl_axial:.1f} Hz")
 sigma_cyl = F_axial / (2 * np.pi * R_cyl * t_cyl)
 print(f"  Cylinder stress:     {sigma_cyl/1e6:.2f} MPa  (allowable: {sigma_y/SF_yield/1e6:.1f} MPa)")
 
-# ─────────────────────────────────────────────────────────────────────────────
-# PART 4 — MASS ESTIMATE
-# ─────────────────────────────────────────────────────────────────────────────
 print("\n" + "=" * 65)
 print("PART 4 — STRUCTURAL MASS ESTIMATE")
 print("=" * 65)
 
-# 4 side panels + top + bottom panel
 panel_area_total = 4 * (bus_side * bus_height) + 2 * (bus_side * bus_side)
 m_panels = panel_area_total * areal_density(t_face_req)
 
 # Central cylinder
 m_cyl = rho_mat * 2 * np.pi * R_cyl * t_cyl * L_cyl
 
-# Vault walls (20 mm Al, ~0.6 x 0.6 x 0.6 m box)
 vault_side = 0.60
 t_vault    = 0.020  # from shielding analysis
 vault_area = 6 * vault_side**2
 m_vault    = rho_mat * vault_area * t_vault
 
-# Fasteners, brackets, misc — 15% mass factor
 m_primary = m_panels + m_cyl + m_vault
 m_misc    = 0.15 * m_primary
 m_total   = m_primary + m_misc
