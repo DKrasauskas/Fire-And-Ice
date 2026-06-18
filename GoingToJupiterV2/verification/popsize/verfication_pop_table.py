@@ -29,25 +29,6 @@ ALT_FILES = {
 }
 COL = "delta_v_ms"
 
-ALT_FILES2 = {
-    "seed = 1000": "VEEseed1000v2.csv",
-    "seed = 1001": "VEEseed1001v2.csv",
-    "seed = 1002": "VEEseed1002v2.csv",
-    "seed = 1003": "VEEseed1003v2.csv",
-    "seed = 1004": "VEEseed1004v2.csv",
-    "seed = 1005": "VEEseed1005v2.csv",
-    "seed = 1006": "VEEseed1006v2.csv",
-    "seed = 1007": "VEEseed1000v2.csv",
-    "seed = 1008": "VEEseed1001v2.csv",
-    "seed = 1009": "VEEseed1002v2.csv",
-    "seed = 1010": "VEEseed1003v2.csv",
-    "seed = 1011": "VEEseed1004v2.csv",
-    "seed = 1012": "VEEseed1005v2.csv",
-    "seed = 1013": "VEEseed1005v2.csv",
-
-}
-# ──────────────────────────────────────────────────────────────────────────────
-
 def load_csv(path):
     return pd.read_csv(path, parse_dates=["launch_date"])
 

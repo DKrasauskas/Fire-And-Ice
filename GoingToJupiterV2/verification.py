@@ -1,6 +1,9 @@
 from main_calculator import run_sim
 import numpy as np
 
+####
+#This file runs the different values for to compare the effact of optimisation population size, and different seeds.
+####
 
 transfer_body_order = ["Earth","Venus", "Earth","Earth", "Jupiter"]
 legs_tof_lb = np.array([20,20,300,500])
