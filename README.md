@@ -20,7 +20,17 @@ These two radically different approaches are combined by coupling the spacecraft
 For example, in the N-body KSP engine, the spacecraft ephemeris can be exported as:
 
 ```
-ORBIT { SMA = 18859035560.264233 ECC = 0.98804852543645449 INC = 89.900551367034282 LPE = 86.444023939868416 LAN = 106.37893435189432 MNA = 6.2809071433766599 EPH = 28507011.169143163 REF = 5 IDENT = Jupiter }
+ORBIT {
+    SMA   = 18859035560.264233
+    ECC   = 0.98804852543645449
+    INC   = 89.900551367034282
+    LPE   = 86.444023939868416
+    LAN   = 106.37893435189432
+    MNA   = 6.2809071433766599
+    EPH   = 28507011.169143163
+    REF   = 5
+    IDENT = Jupiter
+}
 ```
 Which can then be fed directly into TUDat, where physical simulations are ran. Alternatively, the spacecraft can be visualy placed / tuned manualy for flybys, with the coresponding ephemeris then exported to 
 TUDat. This allows for rapid, preliminary prototypinig, which is extremely useful for the underlying DSE, considering the limited amount of time and resources at our disposal. In the future, this could be expanded by including 
