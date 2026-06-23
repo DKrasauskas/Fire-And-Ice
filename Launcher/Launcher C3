@@ -1,0 +1,310 @@
+#Launcher class, that holds info on stages so it calculates its own m0/m1 per stages
+import math
+import numpy as np
+import matplotlib.pyplot as plt
+
+import matplotlib as mpl
+reds = mpl.colormaps['Reds']
+g = 9.8065
+R = 6371000
+Mu = 3.986*10**14
+dVorbit = 9500
+PayloadMass = 2643.834
+
+class Launcher:
+    def __init__(self, stages):
+        self.stages = stages
+
+    def stage_Dv(self, payload_mass):
+        dvs = {}
+        wetMass = payload_mass
+        for stage, info in self.stages.items():
+            wetMass += info["Wetmass"]
+            emptyMass = wetMass - info["propellant mass"] + info["Leftover propellant"]
+            ratio = wetMass / emptyMass if emptyMass != 0 else 0
+            dv = info["isp"] * g * math.log(ratio)
+            dvs[stage] = dv
+        dvTotal = sum(dvs.values())
+        dvs["Total"] = dvTotal
+        return dvs
+
+    def launcher_C3(self, payload_mass, parkingAlt):
+        dv_total = self.stage_Dv(payload_mass)["Total"]
+        V_escape = math.sqrt(2*Mu/(parkingAlt+R))/1000
+        V_orbit = math.sqrt(Mu/(parkingAlt+R))/1000
+        leftover_dv = (dv_total - dVorbit)/1000
+        V_local = (leftover_dv + V_orbit)
+        V_inf = math.sqrt(V_local**2 - V_escape**2) if V_local > V_escape else 0
+        C3 = V_inf**2
+        return C3
+
+def dV_to_C3(dV, parkingAlt):
+    V_escape = math.sqrt(2*Mu/(parkingAlt+R))/1000
+    V_orbit = math.sqrt(Mu/(parkingAlt+R))/1000
+    V_local = dV+V_orbit
+    V_inf = math.sqrt(V_local**2 - V_escape**2) if V_local > V_escape else 0
+    C3 = V_inf**2
+    return C3
+
+def TransferStageDv(TransferDv, launcher, payloadmass):
+    launcherDv = launcher.stage_Dv(payloadmass)["Total"]
+    leftOverDv = launcherDv - dVorbit
+
+    TSDv = TransferDv*1000 - leftOverDv
+    if TSDv < 0: TSDv = 0
+    return TSDv
+
+def transfer_mass(massJupiter, dv):
+    IspTrans = 430
+    epower = np.e**(dv/(IspTrans * g))
+    Mwet = massJupiter * (epower - 1)/(1-0.1*epower)
+    return Mwet
+
+General = Launcher(stages={2: {"Wetmass": 0, "propellant mass": 0, "isp": 0, "Leftover propellant": 0}})
+Launchers = {
+"Neutron" : Launcher(stages={2: {"Wetmass": 52800.00, "propellant mass": 49632.00, "isp": 365, "Leftover propellant": 0},
+                           1: {"Wetmass": 427200.00, "propellant mass": 388131.6633270, "isp": 329, "Leftover propellant": 0}})
+,"Neutron DRL" : Launcher(stages={2: {"Wetmass": 52800.00, "propellant mass": 49632.00, "isp": 365, "Leftover propellant": 0},
+                           1: {"Wetmass": 427200.00, "propellant mass": 388131.6633270, "isp": 329, "Leftover propellant": 14189.80}})   
+,"Neutron RTLS" : Launcher(stages={2: {"Wetmass": 52800.00, "propellant mass": 49632.00, "isp": 365, "Leftover propellant": 0},
+                           1: {"Wetmass": 427200.00, "propellant mass": 388131.6633270, "isp": 329, "Leftover propellant": 49604.53}})  
+
+,"Ariane64" : Launcher(stages={2: {"Wetmass": 38000, "propellant mass": 32000, "isp": 457.2, "Leftover propellant": 0},
+                            1: {"Wetmass": 133099.9972, "propellant mass": 110099.9972, "isp": 432, "Leftover propellant": 0}, 
+                            0: {"Wetmass": 655900.0028, "propellant mass": 611900.0028, "isp": 285.684503, "Leftover propellant": 0}})
+,"Ariane62" : Launcher(stages={2: {"Wetmass": 38000, "propellant mass": 32000, "isp": 457.2, "Leftover propellant": 0},
+                            1: {"Wetmass": 133099.9972, "propellant mass": 110099.9972, "isp": 432, "Leftover propellant": 0}, 
+                            0: {"Wetmass": 349900.0028, "propellant mass": 327900.0028, "isp": 292.226541, "Leftover propellant": 0}})
+
+,"VegaC" : Launcher(stages={4: {"Wetmass": 1438, "propellant mass": 740, "isp": 315.8, "Leftover propellant": 0},
+                         3: {"Wetmass": 12000, "propellant mass": 10567, "isp": 295.9, "Leftover propellant": 0},
+                         2: {"Wetmass": 40477, "propellant mass": 36239, "isp": 293.5, "Leftover propellant": 0},
+                         1: {"Wetmass": 155027, "propellant mass": 141634, "isp": 279, "Leftover propellant": 0}})
+
+,"Falcon9" : Launcher(stages={2: {"Wetmass": 111500, "propellant mass": 107500, "isp": 348, "Leftover propellant": 0},
+                           1: {"Wetmass": 433100, "propellant mass": 410900, "isp": 312, "Leftover propellant": 0}})
+,"Falcon9 DRL" : Launcher(stages={2: {"Wetmass": 111500, "propellant mass": 107500, "isp": 348, "Leftover propellant": 0},
+                           1: {"Wetmass": 433100, "propellant mass": 410900, "isp": 312, "Leftover propellant": 8578.389345}})
+,"Falcon9 RTLS" : Launcher(stages={2: {"Wetmass": 111500, "propellant mass": 107500, "isp": 348, "Leftover propellant": 0},
+                           1: {"Wetmass": 433100, "propellant mass": 410900, "isp": 312, "Leftover propellant": 30567.82558}})                           
+
+,"Falcon Heavy" : Launcher(stages={2: {"Wetmass": 111500, "propellant mass": 107500, "isp": 348, "Leftover propellant": 0},
+                                   1: {"Wetmass": 145470, "propellant mass": 123270, "isp": 312, "Leftover propellant": 0},
+                                   0: {"Wetmass": 1153830, "propellant mass": 1109430, "isp": 312, "Leftover propellant": 0}})
+,"Falcon Heavy Core Landing" : Launcher(stages={2: {"Wetmass": 111500, "propellant mass": 107500, "isp": 348, "Leftover propellant": 0},
+                                   1: {"Wetmass": 145470, "propellant mass": 123270, "isp": 312, "Leftover propellant": 8578.389345},
+                                   0: {"Wetmass": 1153830, "propellant mass": 1109430, "isp": 312, "Leftover propellant": 0}})
+,"Falcon Heavy Booster+Core landing" : Launcher(stages={2: {"Wetmass": 111500, "propellant mass": 107500, "isp": 348, "Leftover propellant": 0},
+                                   1: {"Wetmass": 145470, "propellant mass": 123270, "isp": 312, "Leftover propellant": 8578.389345},
+                                   0: {"Wetmass": 1153830, "propellant mass": 1109430, "isp": 312, "Leftover propellant": 61135.65116}})
+
+}
+
+LauncherStyle = {
+    "Neutron":                           '#CC0000',
+    "Neutron DRL":                       '#FF4444',
+    "Neutron RTLS":                      "#FF7070",
+
+    # Ariane — Blue
+    "Ariane64":                          '#0055FF',
+    "Ariane62":                          "#70A0FF",
+
+    # Vega — Black
+    "VegaC":                             '#000000',
+
+    # Falcon 9 — Green
+    "Falcon9":                           '#007700',
+    "Falcon9 DRL":                       '#00BB00',
+    "Falcon9 RTLS":                      '#66EE66',
+
+    # Falcon Heavy — Orange
+    "Falcon Heavy":                      '#CC6600',
+    "Falcon Heavy Core Landing":         '#FF9900',
+    "Falcon Heavy Booster+Core landing": '#FFCC66',
+}
+
+
+#4715
+#4233
+reqDv = 4.233
+reqC3 = dV_to_C3(reqDv, 270000)
+
+#Transfer stage calculations
+px = 1/plt.rcParams['figure.dpi']
+fig, ax = plt.subplots(figsize=(2000*px, 1000*px))
+payloadrange = np.arange(2000, 5500, 10)
+for launcher_name, launcher in Launchers.items():
+    TransMasses = []
+    for mass in payloadrange:
+        # print(launcher_name)
+        try:
+            iterations = np.arange(0,300)
+            values = []
+            wet = mass
+            for i in iterations:
+                # print("Wetmass: ",wet)
+                TransDV = TransferStageDv(reqDv, launcher, wet)
+                # print("TransferdV: ",TransDV)
+                TransMass = transfer_mass(mass, TransDV)
+                # print("TransMass: ", TransMass, "\n")
+                values.append(TransDV)
+                wet = mass+TransMass
+                if TransDV > reqDv*1000:
+                    TransMass = math.nan
+                    TransDV = math.nan
+                # print(i)
+            # print(launcher_name, TransMass, " kg")
+            TransMasses.append(TransMass)
+            # ax.plot(iterations, values, label=launcher_name, color=LauncherStyle[launcher_name])
+        except:
+            TransMass = math.nan
+            TransMasses.append(TransMass)
+            print(launcher_name)
+
+    ax.plot(payloadrange, TransMasses, label=launcher_name, color=LauncherStyle[launcher_name])
+        
+ax.axvline(PayloadMass, color='red', linestyle='--', linewidth=2)
+#3715
+xmin, xmax = ax.get_xlim()
+ymin, ymax = ax.get_ylim()
+
+# Shade bottom strip (full width, below 9500)
+ax.axvspan(ymin, PayloadMass, color='red', alpha=0.15, zorder=0)
+# Shade top-left box (left of 3715, above 9500)
+
+ax.set_xlim(xmin, xmax)
+ax.set_ylim(ymin, ymax)
+ax.set_xlabel("Payload Mass [kg]", fontsize = 15)
+ax.set_ylabel("Transfer Stage Mass [kg]", fontsize =15)
+# ax.set_title("Transfer stage mass vs payloadmass")
+ax.legend(fontsize=15)
+
+ax.grid(True)
+ax.minorticks_on()
+ax.grid(which='minor', linestyle=':', linewidth=0.5)
+fig.tight_layout
+fig.savefig("Transfer mass", dpi=500, bbox_inches='tight')
+plt.show()
+
+
+plotDv = True
+
+if plotDv: 
+    fig, ax = plt.subplots(figsize=(1000*px, 1000*px))
+    payloads = np.arange(0, 65000, 10)
+
+    for launcher_name, launcher in Launchers.items():
+        DV_values = [launcher.stage_Dv(payload)["Total"] for payload in payloads]
+        ax.plot(payloads, DV_values, label=launcher_name, color=LauncherStyle[launcher_name])
+
+    ax.axhline(9500, color='red', linestyle='--', linewidth=2)
+    ax.axvline(PayloadMass, color='red', linestyle='--', linewidth=2)
+    # ax.axvline(3715, color='grey', linestyle='--', linewidth=2)
+
+    # Now limits are set from your data, grab them
+    xmin, xmax = ax.get_xlim()
+    ymin, ymax = ax.get_ylim()
+    ymin = 8000
+
+    # Shade bottom strip (full width, below 9500)
+    ax.axhspan(ymin, 9500, color='red', alpha=0.15, zorder=0)
+    # Shade top-left box (left of 3715, above 9500)
+    ax.fill_betweenx([9500, ymax], xmin, PayloadMass, color='red', alpha=0.15, zorder=0)
+
+    ax.set_xlim(xmin, xmax)
+    ax.set_ylim(ymin, ymax)
+
+    ax.set_xlabel("Payload Mass [kg]", fontsize = 15)
+    ax.set_ylabel("Delta V [m/s]", fontsize = 15)
+    # ax.set_title("Delta V vs Payload Mass")
+    ax.legend(fontsize = 15)
+    ax.grid(True)
+    ax.minorticks_on()
+    ax.grid(which='minor', linestyle=':', linewidth=0.5)
+    fig.tight_layout
+    fig.savefig("Payload dv", dpi=500, bbox_inches='tight')
+    plt.show()
+
+    fig, ax = plt.subplots(figsize=(1000*px, 1000*px))
+    
+    payloads = np.arange(0, 12000, 10)
+    for launcher_name, launcher in Launchers.items():
+        C3_values = [launcher.launcher_C3(payload, parkingAlt=270000) for payload in payloads]
+        ax.plot(payloads, C3_values, label=launcher_name, color=LauncherStyle[launcher_name])
+
+    # ax.axhline(reqC3Best, color='red', linestyle='--', linewidth=2, label='Required C3')
+    # ax.axhline(reqC3Worst, color='red', linestyle='--', linewidth=2)
+    ax.axhline(reqC3, color='red', linestyle='--', linewidth=2)
+    ax.axhline(77.37, color='grey', linestyle='--', linewidth=2)
+    ax.axvline(PayloadMass, color='red', linestyle='--', linewidth=2)
+
+    xmin, xmax = ax.get_xlim()
+    ymin, ymax = ax.get_ylim()
+
+    # Shade bottom strip (full width, below 9500)
+    ax.axhspan(ymin, reqC3, color='red', alpha=0.15, zorder=0)
+    # Shade top-left box (left of 3715, above 9500)
+    ax.fill_betweenx([reqC3, ymax], xmin, PayloadMass, color='red', alpha=0.15, zorder=0)
+
+    ax.set_xlim(xmin, xmax)
+    ax.set_ylim(ymin, ymax)
+
+
+    ax.set_xlabel("Payload Mass [kg]", fontsize = 15)
+    ax.set_ylabel(r"$C_3$ [m$^2$/s$^2$]", fontsize = 15)
+    # ax.set_title("C3 vs Payload Mass")
+    ax.legend(fontsize=15)
+    ax.grid(True)
+    ax.minorticks_on()
+    ax.grid(which='minor', linestyle=':', linewidth=0.5)
+    fig.tight_layout
+    fig.savefig("Payload C3", dpi=500, bbox_inches='tight')
+    plt.show()
+
+#Function to calculate propellant leftover and delta v required for landing a booster.
+
+#Function to calculate stages for a rocket with boosters
+
+
+
+
+
+# NtrCap = 16000
+# NtrMass = 480000
+# WettFracs = np.arange(0.01, 0.7, 0.01)
+# PropFracs = np.arange(0.5, 1, 0.01)
+# Ve2 = 365*9.81
+# Ve1 = 329*9.81
+# LandingDv = 950
+# for WettFrac in WettFracs:
+#     NtrWett2 = WettFrac * NtrMass
+#     M02 = NtrWett2 + NtrCap
+#     for PropFrac in PropFracs:
+#         NtrProp2 = PropFrac * NtrWett2
+#         M12 = M02 - NtrProp2
+#         DV2 = Ve2*math.log(M02/M12)
+#         DV1 = dVorbit - DV2
+#         M01 = NtrMass + NtrCap
+#         M11 = M01/math.exp(DV1/Ve1)
+
+#         NtrWett1 = M01 - NtrWett2 - NtrCap
+#         NtrProp1 = M01 - M11
+#         NtrDry1 = NtrWett1- NtrProp1
+
+#         LandM0 = NtrDry1*math.exp(LandingDv/Ve1)
+#         LandProp = LandM0 - NtrDry1
+#         propFrac1 = NtrProp1/NtrWett1
+#         Neutron = Launcher(stages={2: {"Wetmass": NtrWett2, "propellant mass": NtrProp2, "isp": 365, "Leftover propellant": 0},
+#                            1: {"Wetmass": NtrWett1, "propellant mass": NtrProp1, "isp": 329, "Leftover propellant": 0}})
+#         NeutronDRL =  Launcher(stages={2: {"Wetmass": NtrWett2, "propellant mass": NtrProp2, "isp": 365, "Leftover propellant": 0},
+#                            1: {"Wetmass": NtrWett1, "propellant mass": NtrProp1, "isp": 329, "Leftover propellant": LandProp}})
+#         try:
+#             C3 = Neutron.launcher_C3(payload_mass=0, parkingAlt=330000)
+#             C3DRL = NeutronDRL.launcher_C3(payload_mass=1500, parkingAlt=330000)
+#             Dv = NeutronDRL.stage_Dv(payload_mass=14000)["Total"]
+#         except:
+#             break
+#         if Dv > 9450 and C3DRL>11 and C3 > 65 and propFrac1 > 0.9 and propFrac1<PropFrac:
+#             print(WettFrac, PropFrac, Dv, C3DRL, C3)
+        
+        
