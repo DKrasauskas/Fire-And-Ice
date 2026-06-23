@@ -47,3 +47,27 @@ dv = np.sqrt(E_kinetic_required * 2) - np.sqrt(E_kinetic_current * 2)
 print(dv)
 deltaV = dv + v_perigee - v_perigee_target
 print(deltaV)
+
+#io orbit
+
+
+r_science_target2  = 	420000000 
+a_new =  (r_science_target2 + r_science_target2) * 0.5
+
+E_kinetic_required = -mu_j / (2 * a_new) + mu_j / (r_science_target2)
+E_kinetic_current  = -mu_j / (2 * a_science) + mu_j / (r_science_target2)
+
+dv = np.sqrt(E_kinetic_required * 2) 
+v_enc =  np.sqrt(E_kinetic_current * 2)
+print(dv)
+print(v_enc)
+
+
+R_io = 1821 #km
+H_min = R_io + 1000
+
+alpha = np.arcsin(R_io / H_min)
+distance = np.cos(alpha) * H_min * 2
+print(distance)
+
+print(distance / (30 * 60))

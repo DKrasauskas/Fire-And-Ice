@@ -112,7 +112,7 @@ transfer_trajectory_object = transfer_trajectory.create_transfer_trajectory(
 
 # Launch window
 departure_date_lb = DateTime(2036, 1, 1).to_epoch()
-departure_date_ub = DateTime(2042, 12, 31).to_epoch()
+departure_date_ub = DateTime(2036, 12, 31).to_epoch()
 
 # Time-of-flight bounds [days → seconds]
 legs_tof_lb = np.zeros(4)
@@ -142,8 +142,8 @@ optimizer = TransferTrajectoryProblem(
 )
 
 prob           = pg.problem(optimizer)
-algo           = pg.algorithm(pg.de(gen=10, seed=4444, F=1))
-population_size = 20
+algo           = pg.algorithm(pg.de(gen=10, seed=4444, F=0.8))
+population_size = 200
 pop            = pg.population(prob, size=population_size, seed=4444)
 
 # =============================================================

@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-dose_90 = np.array([
+dose_90 =  1/4 * np.array([
 1.55E+05,
 7.17E+04,
 3.62E+04,
@@ -16,7 +16,7 @@ dose_90 = np.array([
 2.63E+03,
 ])
 
-dose_0 = np.array([
+dose_0 = 1/4 *  np.array([
     4.61E+04,
     2.34E+04,
     1.41E+04,
@@ -49,16 +49,16 @@ shieldin = np.array([
 fig, ax = plt.subplots()
 N_orb = 30
 # Data lines
-ax.plot(shieldin, np.log(dose_90 * 1e-3 * N_orb), label='Dose 90°', color='steelblue')
-ax.plot(shieldin, np.log(dose_0  * 1e-3 * N_orb), label='Dose 0°',  color='tomato')
+ax.plot(shieldin,dose_0 * 1e-3 * N_orb, label='Dose 90°', color='steelblue')
+ax.plot(shieldin, dose_90  * 1e-3 * N_orb, label='Dose 0°',  color='tomato')
 
 # Reference lines
-ax.axhline(y=np.log(25.0),  color='black', linestyle='--', linewidth=1, label='JUNO vault TID')
+ax.axhline(y=25.0,  color='black', linestyle='--', linewidth=1, label='JUNO vault TID')
 ax.axvline(x=17.5, color='gray',  linestyle=':',  linewidth=1, label='JUNO radiatino vault shielding')
 
 # Axis labels and title
-ax.set_xlabel('Shielding thickness (cm)')
-ax.set_ylabel('Dose (mSv)')
+ax.set_xlabel('Shielding thickness (Ti) (cm)')
+ax.set_ylabel('Dose kRAD)')
 ax.set_title('Dose vs. Shielding Thickness')
 
 # Legend and grid
