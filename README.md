@@ -32,7 +32,38 @@ ORBIT {
     IDENT = Jupiter
 }
 ```
-Which can then be fed directly into TUDat, where physical simulations are ran. Alternatively, the spacecraft can be visualy placed / tuned manualy for flybys, with the coresponding ephemeris then exported to 
+Which can then be fed directly into TUDat, where physical simulations are ran. This is done by setting up custom ephemeris for the spacecraft:
+```python
+body_settings.get( "target_orbit" ).ephemeris_settings =  environment_setup.ephemeris.custom_ephemeris( 
+    hp.spacecraft_state_function, 'Jupiter', FRAME )
+```
+This then places the spacecraft exactly where it would be in the visualization tool. Planetary ephemeris need not be updated, as it is taken directly from SPICE kernels (the only important constraint is to match the exact simulation start date):
+
+```python
+ body_settings.get("Io").ephemeris_settings = environment_setup.ephemeris.direct_spice(
+        "Jupiter", FRAME)
+```
+
+Alternatively, the ephemris can be set via helper functions, this can be done via:
+
+```python
+params = Ephemeris(
+    (
+        18859035560.264233,
+        0.98804852543645449,
+        np.deg2rad(89.900551367034282),
+        np.deg2rad(86.444023939868416),
+        np.deg2rad(106.37893435189432) - np.deg2rad(0.7),
+        6.2809071433766599
+    )
+)
+set_spacecraft_ephemeris(params)
+```
+
+This can also be read directly from the configuration output file in Kerbal Space Program. 
+
+
+Consequently, the spacecraft can be visualy placed / tuned manualy for flybys, with the coresponding ephemeris then exported to 
 TUDat. This allows for rapid, preliminary prototypinig, which is extremely useful for the underlying DSE, considering the limited amount of time and resources at our disposal. In the future, this could be expanded by including 
 a visualization tool within TUDat (OpenGL or Vulcan based, etc).
 
@@ -45,6 +76,22 @@ To simulate mission segments of the Io trajectory, we employ the help of TUdat S
 ## Orbital Insertion
 
 ## Transition between High eccentricity and Primary Science Phases
+
+
+<table>
+  <tr>
+     <td>
+    <img src="https://github.com/user-attachments/assets/cc6ad2f2-18b3-4f83-9c34-25ffff3da02b"" 
+ width="100%" >
+        <figcaption align="center"> Endgame for The Io mission, shown with two final flybys and the eventual disposal into Jupiter </figcaption>
+    </td>
+    <td>
+     <img src="https://github.com/user-attachments/assets/2fb8ca90-2210-48a7-b74c-462dfd7feb94 "
+ width="100%">
+       <figcaption align="center"> MGA during perijove 13. The optimized trajectory includes Io, Ganymede and Callisto flybys. </figcaption>
+    </td>
+  </tr>
+</table>
 
 To showcase the transition between high eccentricity and primary science phases, the goal is to simulate a single segment showcasing the possibility of utilizing the Galilean moons for trajectory change.
 
