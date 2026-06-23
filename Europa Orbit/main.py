@@ -79,7 +79,7 @@ acceleration_models = propagation_setup.create_acceleration_models(
 
 # Simulation epochs
 simulation_start_epoch = DateTime(2026, 6, 1).to_epoch()
-simulation_end_epoch = DateTime(2026, 6, 2).to_epoch()
+simulation_end_epoch = DateTime(2026, 7, 2).to_epoch()
 
 # Europa parameters
 europa_mu = bodies.get("Europa").gravitational_parameter
@@ -190,7 +190,7 @@ longitude = dep_var_dict.asarray(
     dependent_variable.longitude("SoIaF", "Europa")
 )
 
-hours = 10
+hours = 10000
 subset = int(len(relative_time_hours) / 24 * hours)
 
 latitude = np.rad2deg(latitude[:subset])

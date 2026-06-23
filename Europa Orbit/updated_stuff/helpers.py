@@ -31,21 +31,21 @@ def true_to_mean_anomaly(nu, e):
     return M
 
 
-R =  422700000
-jupiter_gravitational_parameter = 1.266e17
-eccentricity = 0.4
-semi_major_axis = R / (1 - eccentricity ** 2)
-TRUE_ANOMALY = np.radians(90)
-mean_anomaly_at_j2000 = true_to_mean_anomaly(TRUE_ANOMALY, eccentricity)
-deltaM = 0
-inclination      = np.deg2rad(90 + 25.6773)
-arg_of_periapsis = np.radians(90)
-lan              = np.radians(2.0157)
+R =  2000000 + 1560000
+jupiter_gravitational_parameter = 4.79984e22 * 6.67e-11
+# eccentricity = 0.4
+# semi_major_axis = R / (1 - eccentricity ** 2)
+# TRUE_ANOMALY = np.radians(90)
+# mean_anomaly_at_j2000 = true_to_mean_anomaly(TRUE_ANOMALY, eccentricity)
+# deltaM = 0
+# inclination      = np.deg2rad(90 + 25.6773)
+# arg_of_periapsis = np.radians(90)
+# lan              = np.radians(2.0157)
 
 
-semi_major_axis = 18859035560.264233 - 100000000
-eccentricity = 0.98804852543645449
-inclination = np.deg2rad(89.900551367034282)
+semi_major_axis = 200000 + 1560000
+eccentricity = 0.001
+inclination = np.deg2rad(45.900551367034282)
 arg_of_periapsis = np.deg2rad(86.444023939868416)
 lan = np.deg2rad(106.37893435189432) - np.deg2rad(0.6)
 Mean =6.2809071433766599
@@ -145,7 +145,7 @@ def create_bodies(FRAME = "J2000"):
     body_settings.add_empty_settings( "target_orbit" )
     # Manually create and assign environment model settings to new body settings
     body_settings.get( "target_orbit" ).ephemeris_settings =  environment_setup.ephemeris.custom_ephemeris( 
-        spacecraft_state_function, 'Jupiter', FRAME )
+        spacecraft_state_function, 'Europa', FRAME )
     oumuamua_gravitational_parameter = 0.08  # Example value, adjust as needed
 
     
@@ -153,8 +153,8 @@ def create_bodies(FRAME = "J2000"):
         environment_setup.gravity_field.central(oumuamua_gravitational_parameter)
     )
 
-    body_settings.get("Io").rotation_model_settings = environment_setup.rotation_model.synchronous(
-    "Jupiter", global_frame_orientation, "IAU_" + "Io")
+    body_settings.get("Europa").rotation_model_settings = environment_setup.rotation_model.synchronous(
+    "Jupiter", global_frame_orientation, "IAU_" + "Europa")
 
 
     oumuamua_gravitational_parameter = 0.008  # Example value, adjust as needed
@@ -172,7 +172,8 @@ def initialize_simulation(bodies_to_create, bodies, body_settings, simulation_st
         current_accelerations = {}
         for body_j in bodies_to_create:
             if body_i != body_j:
-                if body_j == "Io":
+                if body_j == "Europa":
+                    current_accelerations[body_j] = [propagation_setup.acceleration.spherical_harmonic_gravity(8, 8)]
                     continue
                 current_accelerations[body_j] = [
                     propagation_setup.acceleration.point_mass_gravity()
